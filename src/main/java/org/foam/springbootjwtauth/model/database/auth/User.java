@@ -59,7 +59,6 @@ public class User implements UserDetails {
                 .toList();
     }
 
-
     @Override
     public boolean isAccountNonExpired() {
         return this.accountNonExpired;
@@ -78,9 +77,5 @@ public class User implements UserDetails {
     @Override
     public boolean isEnabled() {
         return this.enabled;
-    }
-
-    public boolean isAdmin() {
-        return authorities.stream().anyMatch(authority -> authority.getAuthority().equals("ROLE_ADMIN"));
     }
 }
