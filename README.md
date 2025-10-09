@@ -8,8 +8,6 @@ A focused, production-lean Spring Boot 3 service that demonstrates stateless JWT
 - Method-level authorization checks
 - Integration tests showing register → login → refresh → logout → protected user actions
 
-Base URL: http://localhost:8080/api
-
 
 ## <u>Table of Contents</u>
 - [Features](#features)
@@ -54,7 +52,7 @@ Base URL: http://localhost:8080/api
 
 Token contents
 - Access token carries username as subject and claims: userId and roles (e.g. ["ROLE_USER"]).
-- Refresh token carries a unique id (DB row id), the userId, and a random deviceId to bind the token to a logical device/session.
+- Refresh token carries a unique id (its primary key), the userId, and a random deviceId to bind the token to a logical device/session.
 
 
 ## <u>Quick start</u>
