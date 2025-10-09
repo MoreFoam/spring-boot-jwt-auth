@@ -32,9 +32,6 @@ public class UserService implements UserDetailsService {
 
     Logger logger = LoggerFactory.getLogger(UserService.class);
 
-    @Value("${spring-boot-jwt-auth.client.url}")
-    private String clientUrl;
-
     @Autowired
     public UserService(UserRepository userRepository,
                        PasswordEncoder passwordEncoder,
