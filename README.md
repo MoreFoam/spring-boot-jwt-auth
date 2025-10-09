@@ -258,7 +258,6 @@ Entities
 - Replace plaintext properties with environment variables or a secrets manager.
 - Change JWT secret and rotate periodically; consider key identifiers (kid) if adding rotation.
 - Remove any logging of Authorization headers and tokens.
-- Consider enforcing authentication at HTTP layer for /user/** in SecurityConfig, retaining @PreAuthorize for object-level checks.
 - Use Flyway/Liquibase instead of ddl-auto=update.
 - Consider a blacklist/whitelist or short access token TTL plus sliding refresh for better compromise windows.
 - Add validation annotations to request DTOs (@NotBlank, @Email, @Size) and @Valid on controller methods.
