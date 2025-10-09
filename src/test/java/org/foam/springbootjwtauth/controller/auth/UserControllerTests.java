@@ -79,7 +79,7 @@ public class UserControllerTests {
     }
 
     @AfterEach
-    public void cleanupForGetUpdateDelete(TestInfo testInfo) {
+    public void cleanupForGetUpdate(TestInfo testInfo) {
         String testName = testInfo.getDisplayName();
 
         if (testName.contains("canUpdate") || testName.contains("canGet")) {
