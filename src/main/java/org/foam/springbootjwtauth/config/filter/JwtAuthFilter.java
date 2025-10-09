@@ -33,32 +33,32 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull FilterChain filterChain) throws ServletException, IOException {
-        logger.info("Executing JwtAuthFilter");
+        logger.debug("Executing JwtAuthFilter");
         String authHeader = request.getHeader("Authorization");
-        logger.info("Authorization header in request: " + authHeader);
+        logger.debug("Authorization header in request: " + authHeader);
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             String token = authHeader.substring(7);
-            logger.info("Token in request: " + token);
+            logger.debug("Token in request: " + token);
             try {
                 String userName = jwtService.extractAllClaims(token).getSubject();
                 Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
                 if (userName != null && authentication == null) {
                     User user = userService.loadUserByUsername(userName);
-                    logger.info("User loaded with id:" + user.getId());
+                    logger.debug("User loaded with id:" + user.getId());
                     if (jwtService.validateAccessToken(token, user)) {
                         UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                                 user, null, user.getAuthorities());
                         authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                         SecurityContextHolder.getContext().setAuthentication(authToken);
-                        logger.info("Authenticated user: " + user.getUsername());
+                        logger.debug("Authenticated user: " + user.getUsername());
                     }
                 }
             } catch (JwtException error) {
                 // token validation failed, so do not authenticate
-                logger.info("Token validation failed with JwtException: " + error.getMessage());
+                logger.debug("Token validation failed with JwtException: " + error.getMessage());
             }
         }
-        logger.info("Finished executing JwtAuthFilter");
+        logger.debug("Finished executing JwtAuthFilter");
 
         filterChain.doFilter(request, response);
     }
