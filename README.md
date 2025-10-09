@@ -19,7 +19,7 @@ A focused, production-lean Spring Boot 3 service that demonstrates stateless JWT
 - [Testing](#testing)
 - [Production hardening notes](#production-hardening-notes)
 - [Troubleshooting](#troubleshooting)
-
+- [License](#license)
 
 ## <u>Features</u>
 - Stateless JWT security using HS256
@@ -273,6 +273,8 @@ Entities
 - JWT signature invalid: Your JWT secret key likely changed; restart app/clients with the same configured key.
 - Token expired: Use /auth/refresh with a valid refresh token to get a new access token.
 
+## <u>License</u>
+This project is licensed under the MIT License. See the LICENSE file for details.
 
 ---
 
