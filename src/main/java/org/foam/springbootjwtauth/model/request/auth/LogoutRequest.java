@@ -1,4 +1,8 @@
 package org.foam.springbootjwtauth.model.request.auth;
 
-public record LogoutRequest(String refreshToken, String username, String deviceId) {
+import jakarta.validation.constraints.NotBlank;
+
+public record LogoutRequest(@NotBlank String refreshToken,
+                            @NotBlank String username,
+                            @NotBlank String deviceId) {
 }

@@ -1,5 +1,6 @@
 package org.foam.springbootjwtauth.controller.auth;
 
+import jakarta.validation.Valid;
 import org.foam.springbootjwtauth.annotation.LogMethod;
 import org.foam.springbootjwtauth.model.request.auth.LoginRequest;
 import org.foam.springbootjwtauth.model.request.auth.LogoutRequest;
@@ -11,6 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -18,6 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/auth")
+@Validated
 public class AuthController {
 
     private final AuthService authService;
@@ -29,7 +32,7 @@ public class AuthController {
 
     @LogMethod
     @PostMapping("/login")
-    public ResponseEntity<LoginResponse> login(@RequestBody LoginRequest loginRequest) {
+    public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest loginRequest) {
         try {
             LoginResponse loginResponse = authService.login(loginRequest);
 
@@ -41,14 +44,14 @@ public class AuthController {
 
     @LogMethod
     @PostMapping("/logout")
-    public ResponseEntity<Void> logout(@RequestBody LogoutRequest logoutRequest) {
+    public ResponseEntity<Void> logout(@Valid @RequestBody LogoutRequest logoutRequest) {
         authService.logout(logoutRequest);
         return ResponseEntity.ok().build();
     }
 
     @LogMethod
     @PostMapping("/refresh")
-    public ResponseEntity<RefreshResponse> refresh(@RequestBody RefreshRequest refreshRequest) {
+    public ResponseEntity<RefreshResponse> refresh(@Valid @RequestBody RefreshRequest refreshRequest) {
         return ResponseEntity.ok().body(authService.refresh(refreshRequest));
     }
 }

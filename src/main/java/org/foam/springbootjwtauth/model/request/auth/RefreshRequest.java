@@ -1,4 +1,8 @@
 package org.foam.springbootjwtauth.model.request.auth;
 
-public record RefreshRequest(String refreshToken, String username, String deviceId) {
+import jakarta.validation.constraints.NotBlank;
+
+public record RefreshRequest(@NotBlank String refreshToken,
+                             @NotBlank String username,
+                             @NotBlank String deviceId) {
 }
