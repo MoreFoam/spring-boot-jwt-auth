@@ -1,4 +1,4 @@
-package org.foam.springbootjwtauth.controller.auth;
+package org.foam.springbootjwtauth.integration.controller.auth;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -25,7 +25,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @AutoConfigureMockMvc
-public class AuthControllerTests {
+public class AuthControllerIntegrationTests {
 
     @Autowired
     private MockMvc mockMvc;

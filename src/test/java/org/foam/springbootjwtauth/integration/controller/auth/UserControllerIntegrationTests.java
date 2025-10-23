@@ -1,4 +1,4 @@
-package org.foam.springbootjwtauth.controller.auth;
+package org.foam.springbootjwtauth.integration.controller.auth;
 
 import org.foam.springbootjwtauth.model.request.auth.LoginRequest;
 import org.foam.springbootjwtauth.model.request.auth.RegisterUserRequest;
@@ -21,7 +21,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @AutoConfigureMockMvc
-public class UserControllerTests {
+public class UserControllerIntegrationTests {
 
     @Autowired
     private MockMvc mockMvc;

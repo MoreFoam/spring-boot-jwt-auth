@@ -1,4 +1,4 @@
-package org.foam.springbootjwtauth.controller;
+package org.foam.springbootjwtauth.controller.auth;
 
 import org.foam.springbootjwtauth.annotation.LogMethod;
 import org.foam.springbootjwtauth.model.database.auth.User;
