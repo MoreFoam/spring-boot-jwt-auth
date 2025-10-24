@@ -124,7 +124,7 @@ public class UserControllerIntegrationTests {
                         {
                             "id":"%s",
                             "username": "user",
-                            "email": "user@user.com"
+                            "email": "new-email@user.com"
                         }
                     """, userId);
 
@@ -135,7 +135,7 @@ public class UserControllerIntegrationTests {
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.id").value(userId))
                     .andExpect(jsonPath("$.username").value("user"))
-                    .andExpect(jsonPath("$.email").value("user@user.com"));
+                    .andExpect(jsonPath("$.email").value("new-email@user.com"));
         } finally {
             // clean up
             refreshTokenRepository.deleteById(jwtService.extractAllClaims(loginResponse.getRefreshToken()).get("id", Long.class));
