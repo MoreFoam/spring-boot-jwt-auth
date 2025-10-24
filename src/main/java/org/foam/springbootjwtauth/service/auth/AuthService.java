@@ -102,9 +102,6 @@ public class AuthService {
         // Check if the refresh token is valid
         try {
             if (!jwtService.validateRefreshToken(refreshRequest.refreshToken(), user)) {
-                Long refreshTokenId = Long.valueOf(jwtService.extractAllClaims(refreshRequest.refreshToken()).get("id").toString());
-                jwtService.invalidateRefreshToken(refreshTokenId);
-
                 throw new IllegalArgumentException("Invalid refresh token");
             }
         } catch (ExpiredJwtException e) { // If token is expired, we still need to validate the claims and token
