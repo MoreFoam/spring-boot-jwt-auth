@@ -151,7 +151,7 @@ public class AuthServiceUnitTests {
     }
 
     @Test
-    void testLogoutUserNotFound() {
+    void testLogout_UserNotFound() {
         // Arrange
         LogoutRequest logoutRequest = new LogoutRequest("refresh-token", "unknown", "device-id");
 
@@ -167,7 +167,7 @@ public class AuthServiceUnitTests {
     }
 
     @Test
-    void testLogoutInvalidRefreshToken() {
+    void testLogout_InvalidRefreshToken() {
         // Arrange
         LogoutRequest logoutRequest = new LogoutRequest("invalid-refresh-token", "user", "device-id");
 
@@ -188,7 +188,7 @@ public class AuthServiceUnitTests {
     }
 
     @Test
-    void testLogoutExpiredRefreshToken() {
+    void testLogout_ExpiredRefreshToken() {
         // Arrange
         LogoutRequest logoutRequest = new LogoutRequest("expired-refresh-token", "user", "device-id");
 
@@ -227,7 +227,7 @@ public class AuthServiceUnitTests {
     }
 
     @Test
-    void testLogoutExpiredRefreshTokenInvalid() {
+    void testLogout_ExpiredRefreshTokenInvalid() {
         // Arrange
         LogoutRequest logoutRequest = new LogoutRequest("expired-invalid-token", "user", "device-id");
 
@@ -290,7 +290,7 @@ public class AuthServiceUnitTests {
     }
 
     @Test
-    void testRefreshUserNotFound() {
+    void testRefresh_UserNotFound() {
         // Arrange
         RefreshRequest refreshRequest = new RefreshRequest("invalid-refresh-token", "user", "device-id");
 
@@ -309,7 +309,7 @@ public class AuthServiceUnitTests {
     }
 
     @Test
-    void testRefreshInvalidRefreshToken() {
+    void testRefresh_InvalidRefreshToken() {
         // Arrange
         RefreshRequest refreshRequest = new RefreshRequest("invalid-refresh-token", "user", "device-id");
 
@@ -332,7 +332,7 @@ public class AuthServiceUnitTests {
     }
 
     @Test
-    void testRefreshExpiredRefreshToken() {
+    void testRefresh_ExpiredRefreshToken() {
         // Arrange
         RefreshRequest refreshRequest = new RefreshRequest("invalid-refresh-token", "user", "device-id");
 
@@ -366,7 +366,7 @@ public class AuthServiceUnitTests {
     }
 
     @Test
-    void testRefreshExpiredRefreshTokenInvalid() {
+    void testRefresh_ExpiredRefreshTokenInvalid() {
         // Arrange
         RefreshRequest refreshRequest = new RefreshRequest("invalid-refresh-token", "user", "device-id");
 
