@@ -97,7 +97,7 @@ public class UserControllerUnitTests {
 
         User updatedUser = new User();
         updatedUser.setId(1L);
-        updatedUser.setUsername("updated-user");
+        updatedUser.setUsername("user");
         updatedUser.setPassword("password");
         updatedUser.setEmail("updated@mail.com");
         updatedUser.setEnabled(true);
@@ -121,7 +121,7 @@ public class UserControllerUnitTests {
         assertEquals(200, response.getStatusCode().value());
         Assertions.assertNotNull(response.getBody());
         assertEquals(1L, response.getBody().getId());
-        assertEquals("updated-user", response.getBody().getUsername());
+        assertEquals("user", response.getBody().getUsername());
         assertEquals("updated@mail.com", response.getBody().getEmail());
 
         // Verify controller called the service
