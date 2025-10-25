@@ -78,6 +78,7 @@ public class UserService implements UserDetailsService {
     @Override
     public User loadUserByUsername(String username) throws UsernameNotFoundException {
         User user = userRepository.getUserByUsername(username);
+
         if (user == null) {
             throw new UsernameNotFoundException(username);
         }
@@ -100,8 +101,12 @@ public class UserService implements UserDetailsService {
     }
 
     @Transactional
-    public void deleteUser(String username) {
+    public void deleteUser(String username) throws UsernameNotFoundException {
         User user = userRepository.getUserByUsername(username);
+
+        if (user == null) {
+            throw new UsernameNotFoundException(username);
+        }
 
         userRepository.delete(user);
     }
