@@ -7,7 +7,7 @@ A focused, production-lean Spring Boot 3 service that demonstrates stateless JWT
 - A JWT filter that authenticates requests via the Authorization header
 - Method-level authorization checks
 - Integration tests showing register → login → refresh → logout → protected user actions
-
+- Unit tests for the controller and service layers
 
 ## <u>Table of Contents</u>
 - [Features](#features)
