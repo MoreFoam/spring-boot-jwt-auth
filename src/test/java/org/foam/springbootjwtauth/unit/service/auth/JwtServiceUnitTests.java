@@ -116,7 +116,7 @@ public class JwtServiceUnitTests {
     }
 
     @Test
-    void testValidateAccessToken_ExpiredToken_ReturnsFalse() throws Exception {
+    void testValidateAccessToken_ExpiredToken_ReturnsFalse() {
         // Arrange
         ReflectionTestUtils.setField(jwtService, "expiration", -1000L); // expire token
         String expiredToken = jwtService.generateAccessToken(user);

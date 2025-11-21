@@ -42,9 +42,9 @@ public class AuthorityServiceUnitTests {
         List<Authority> returnedAuthorities = authorityService.getAuthoritiesByUsername(username);
 
         // Assert
-        assertEquals(returnedAuthorities.size(), 1);
-        assertEquals(returnedAuthorities.get(0).getAuthority(), authority.getAuthority());
-        assertEquals(returnedAuthorities.get(0).getUsername(), authority.getUsername());
+        assertEquals(1, returnedAuthorities.size());
+        assertEquals(authority.getAuthority(), returnedAuthorities.get(0).getAuthority());
+        assertEquals(authority.getUsername(), returnedAuthorities.get(0).getUsername());
 
         // Verify
         verify(authorityRepository).getAuthoritiesByUsername(username);
@@ -63,8 +63,8 @@ public class AuthorityServiceUnitTests {
         Authority returnedAuthority = authorityService.saveAuthority(authority);
 
         // Assert
-        assertEquals(returnedAuthority.getAuthority(), authority.getAuthority());
-        assertEquals(returnedAuthority.getUsername(), authority.getUsername());
+        assertEquals(authority.getAuthority(), returnedAuthority.getAuthority());
+        assertEquals(authority.getUsername(), returnedAuthority.getUsername());
 
         // Verify
         verify(authorityRepository).save(authority);

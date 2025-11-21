@@ -24,7 +24,7 @@ public class User implements UserDetails {
     @Column(nullable = false, unique = true)
     private String username;
 
-    @Column(length = 255, nullable = false)
+    @Column(nullable = false)
     @ToString.Exclude
     private String password;
 

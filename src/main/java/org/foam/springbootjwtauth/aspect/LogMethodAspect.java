@@ -1,7 +1,5 @@
 package org.foam.springbootjwtauth.aspect;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.aspectj.lang.JoinPoint;
 import org.aspectj.lang.annotation.AfterReturning;
 import org.aspectj.lang.annotation.Aspect;
@@ -10,13 +8,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import tools.jackson.databind.ObjectMapper;
 
 @Aspect
 @Component
 public class LogMethodAspect {
     private static final Logger logger = LoggerFactory.getLogger(LogMethodAspect.class);
 
-    ObjectMapper objectMapper;
+    private final ObjectMapper objectMapper;
 
     @Autowired
     public LogMethodAspect(ObjectMapper objectMapper) {
@@ -24,7 +23,7 @@ public class LogMethodAspect {
     }
 
     @Before("@annotation(org.foam.springbootjwtauth.annotation.LogMethod)")
-    public void logMethodExecution(JoinPoint joinPoint) throws JsonProcessingException {
+    public void logMethodExecution(JoinPoint joinPoint) {
         // Get the method name
         String methodName = joinPoint.getSignature().getName();
 
@@ -50,7 +49,7 @@ public class LogMethodAspect {
     }
 
     @AfterReturning(pointcut = "@annotation(org.foam.springbootjwtauth.annotation.LogMethod)", returning = "response")
-    public void logMethodResponse(JoinPoint joinPoint, Object response) throws JsonProcessingException {
+    public void logMethodResponse(JoinPoint joinPoint, Object response) {
         // Get the method name
         String methodName = joinPoint.getSignature().getName();
 

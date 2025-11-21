@@ -1,7 +1,5 @@
 package org.foam.springbootjwtauth.integration.controller.auth;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.foam.springbootjwtauth.model.database.auth.User;
 import org.foam.springbootjwtauth.model.request.auth.RegisterUserRequest;
 import org.foam.springbootjwtauth.model.response.auth.LoginResponse;
@@ -13,11 +11,13 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -99,9 +99,9 @@ public class AuthControllerIntegrationTests {
         String responseBody = loginResult.getResponse().getContentAsString();
         JsonNode jsonResponse = objectMapper.readTree(responseBody);
 
-        String accessToken = jsonResponse.get("accessToken").asText();
-        String refreshToken = jsonResponse.get("refreshToken").asText();
-        String deviceId = jsonResponse.get("deviceId").asText();
+        String accessToken = jsonResponse.get("accessToken").asString();
+        String refreshToken = jsonResponse.get("refreshToken").asString();
+        String deviceId = jsonResponse.get("deviceId").asString();
 
         // log out
         String logoutRequestJson = String.format("""
@@ -146,9 +146,9 @@ public class AuthControllerIntegrationTests {
         String responseBody = loginResult.getResponse().getContentAsString();
         JsonNode jsonResponse = objectMapper.readTree(responseBody);
 
-        String accessToken = jsonResponse.get("accessToken").asText();
-        String refreshToken = jsonResponse.get("refreshToken").asText();
-        String deviceId = jsonResponse.get("deviceId").asText();
+        String accessToken = jsonResponse.get("accessToken").asString();
+        String refreshToken = jsonResponse.get("refreshToken").asString();
+        String deviceId = jsonResponse.get("deviceId").asString();
 
         // refresh
         String refreshRequestJson = String.format("""
