@@ -57,7 +57,7 @@ Token contents
 
 ## <u>Quick start</u>
 Prerequisites
-- Java 17+
+- Java 25+
 - Maven 3.9+
 - Postgres running locally
 
