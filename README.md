@@ -97,6 +97,26 @@ mvn spring-boot:run
 
 The API will be available at http://localhost:8080/api
 
+### Smoke test the API
+
+After the app is running, register a user:
+
+```bash
+curl -X POST http://localhost:8080/api/user/register \
+  -H "Content-Type: application/json" \
+  -d '{"username":"user","email":"user@user.com","password":"password"}'
+```
+
+Then log in:
+
+```bash
+curl -X POST http://localhost:8080/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"user","password":"password"}'
+```
+
+The login response includes `accessToken`, `refreshToken`, and `deviceId`. See the API reference below for refresh, logout, browser-cookie auth, and protected user endpoints.
+
 ### Run tests
 
 Docker must be running because integration tests use Testcontainers.
