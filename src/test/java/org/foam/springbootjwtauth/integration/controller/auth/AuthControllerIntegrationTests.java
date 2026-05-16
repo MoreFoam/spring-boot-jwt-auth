@@ -419,8 +419,6 @@ public class AuthControllerIntegrationTests {
                 """, webLoginResult.deviceId());
 
         try {
-            CsrfResult csrf = getCsrfToken();
-
             mockMvc.perform(post("/auth/web/refresh")
                             .cookie(webLoginResult.refreshTokenCookie())
                             .contentType(MediaType.APPLICATION_JSON)
