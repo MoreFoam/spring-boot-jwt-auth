@@ -10,7 +10,7 @@ import org.foam.springbootjwtauth.exception.auth.RefreshTokenNotFoundException;
 import org.foam.springbootjwtauth.model.request.auth.LoginRequest;
 import org.foam.springbootjwtauth.model.request.auth.LogoutRequest;
 import org.foam.springbootjwtauth.model.request.auth.RefreshRequest;
-import org.foam.springbootjwtauth.model.request.auth.WebTokenRequest;
+import org.foam.springbootjwtauth.model.request.auth.WebSessionRequest;
 import org.foam.springbootjwtauth.model.response.auth.LoginResponse;
 import org.foam.springbootjwtauth.model.response.auth.RefreshResponse;
 import org.foam.springbootjwtauth.model.response.auth.WebLoginResponse;
@@ -86,12 +86,12 @@ public class AuthController {
     @PostMapping("/web/refresh")
     public ResponseEntity<RefreshResponse> webRefresh(
             HttpServletRequest httpServletRequest,
-            @Valid @RequestBody WebTokenRequest webTokenRequest) {
+            @Valid @RequestBody WebSessionRequest webSessionRequest) {
         String refreshToken = getRefreshTokenCookieValue(httpServletRequest);
         RefreshRequest refreshRequest = new RefreshRequest(
                 refreshToken,
-                webTokenRequest.username(),
-                webTokenRequest.deviceId());
+                webSessionRequest.username(),
+                webSessionRequest.deviceId());
 
         return ResponseEntity.ok().body(authService.refresh(refreshRequest));
     }
@@ -100,15 +100,15 @@ public class AuthController {
     @PostMapping("/web/logout")
     public ResponseEntity<Void> webLogout(
             HttpServletRequest httpServletRequest,
-            @Valid @RequestBody WebTokenRequest webTokenRequest) {
+            @Valid @RequestBody WebSessionRequest webSessionRequest) {
         String refreshToken = getRefreshTokenCookieValueOrNull(httpServletRequest);
 
         if (refreshToken != null) {
             try {
                 authService.logout(new LogoutRequest(
                         refreshToken,
-                        webTokenRequest.username(),
-                        webTokenRequest.deviceId()));
+                        webSessionRequest.username(),
+                        webSessionRequest.deviceId()));
             } catch (IllegalArgumentException | JwtException | RefreshTokenNotFoundException | NoSuchElementException ignored) {
                 // Browser logout should still clear the local cookie even if the server-side token is already invalid.
             }
