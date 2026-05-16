@@ -140,9 +140,17 @@ These defaults are in src/main/resources/application.properties. Review and chan
     - spring-boot-jwt-auth.security.refresh-cookie.max-age-seconds=5184000
   - Use secure=true when serving over HTTPS.
 
+- Browser CSRF cookie
+  - Defaults:
+    - spring-boot-jwt-auth.security.csrf-cookie.path=/
+    - spring-boot-jwt-auth.security.csrf-cookie.secure=false
+    - spring-boot-jwt-auth.security.csrf-cookie.same-site=Lax
+  - The CSRF cookie is intentionally readable by JavaScript so browser clients can send its value in the X-XSRF-TOKEN header.
+  - Use secure=true when serving over HTTPS. If the browser client and API are cross-site, use SameSite=None together with secure=true for both browser cookies.
+
 Additional critical warnings
 - Do not log credentials or tokens
-  - JwtAuthFilter.java and LogMethodAspect.java can log Authorization headers, tokens, passwords, and other sensitive data at the debug level. Consider removing the logging or refactoring these classes if you plan to work with sensitive production data.
+  - LogMethodAspect.java can log request/response bodies that contain credentials or tokens at the debug level. Avoid enabling debug logging for sensitive environments unless request/response logging is removed or redacted.
 - Externalize secrets for public repos/CI
   - Move secrets (DB password, JWT key) to environment variables or a secure vault. Do not commit real secrets.
 - Context path
@@ -274,10 +282,23 @@ curl -X POST http://localhost:8080/api/auth/refresh \
 ```
 
 ### Browser Client Flow
-Browser endpoints keep the refresh token in an HttpOnly cookie instead of returning it in JSON.
+Browser endpoints keep the refresh token in an HttpOnly cookie instead of returning it in JSON. Unsafe browser endpoints also require CSRF protection: call the CSRF endpoint first, then send the returned token in the `X-XSRF-TOKEN` header on browser login, refresh, and logout requests.
+
+#### Web CSRF
+**Endpoint:** `GET /auth/web/csrf`  
+**Response body:**
+```json
+{
+  "token": "...",
+  "headerName": "X-XSRF-TOKEN"
+}
+```
+Also sets a readable `XSRF-TOKEN` cookie. Browser clients may use either the response body token or the `XSRF-TOKEN` cookie value, then send it as `X-XSRF-TOKEN` on subsequent `/auth/web/*` POST requests.
 
 #### Web Login
 **Endpoint:** `POST /auth/web/login`  
+**Headers:** `X-XSRF-TOKEN: <csrf token>`  
+**Cookie:** `XSRF-TOKEN`  
 **Body:**
 ```json
 {
@@ -296,7 +317,8 @@ Also sets a `refreshToken` HttpOnly cookie.
 
 #### Web Refresh
 **Endpoint:** `POST /auth/web/refresh`  
-**Cookie:** `refreshToken`  
+**Headers:** `X-XSRF-TOKEN: <csrf token>`  
+**Cookies:** `refreshToken`, `XSRF-TOKEN`  
 **Body:**
 ```json
 {
@@ -313,7 +335,8 @@ Also sets a `refreshToken` HttpOnly cookie.
 
 #### Web Logout
 **Endpoint:** `POST /auth/web/logout`  
-**Cookie:** `refreshToken`  
+**Headers:** `X-XSRF-TOKEN: <csrf token>`  
+**Cookies:** `refreshToken`, `XSRF-TOKEN`  
 **Body:**
 ```json
 {
