@@ -29,14 +29,16 @@ public class AuthorityServiceUnitTests {
     void testGetAuthoritiesByUsername() {
         // Arrange
         String username = "user";
+        org.foam.springbootjwtauth.model.database.auth.User user = new org.foam.springbootjwtauth.model.database.auth.User();
+        user.setUsername(username);
 
         List<Authority> authorities = new ArrayList<>();
         Authority authority = new Authority();
         authority.setAuthority("ROLE_USER");
-        authority.setUsername(username);
+        authority.setUser(user);
         authorities.add(authority);
 
-        when(authorityRepository.getAuthoritiesByUsername(username)).thenReturn(authorities);
+        when(authorityRepository.getAuthoritiesByUserUsername(username)).thenReturn(authorities);
 
         // Act
         List<Authority> returnedAuthorities = authorityService.getAuthoritiesByUsername(username);
@@ -44,10 +46,10 @@ public class AuthorityServiceUnitTests {
         // Assert
         assertEquals(1, returnedAuthorities.size());
         assertEquals(authority.getAuthority(), returnedAuthorities.get(0).getAuthority());
-        assertEquals(authority.getUsername(), returnedAuthorities.get(0).getUsername());
+        assertEquals(username, returnedAuthorities.get(0).getUser().getUsername());
 
         // Verify
-        verify(authorityRepository).getAuthoritiesByUsername(username);
+        verify(authorityRepository).getAuthoritiesByUserUsername(username);
     }
 
     @Test
@@ -55,7 +57,6 @@ public class AuthorityServiceUnitTests {
         // Arrange
         Authority authority = new Authority();
         authority.setAuthority("ROLE_USER");
-        authority.setUsername("user");
 
         when(authorityRepository.save(authority)).thenReturn(authority);
 
@@ -64,7 +65,6 @@ public class AuthorityServiceUnitTests {
 
         // Assert
         assertEquals(authority.getAuthority(), returnedAuthority.getAuthority());
-        assertEquals(authority.getUsername(), returnedAuthority.getUsername());
 
         // Verify
         verify(authorityRepository).save(authority);

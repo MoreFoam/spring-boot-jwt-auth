@@ -4,7 +4,9 @@ import org.foam.springbootjwtauth.controller.auth.UserController;
 import org.foam.springbootjwtauth.model.database.auth.Authority;
 import org.foam.springbootjwtauth.model.database.auth.User;
 import org.foam.springbootjwtauth.model.request.auth.RegisterUserRequest;
+import org.foam.springbootjwtauth.model.request.auth.UpdatePasswordRequest;
 import org.foam.springbootjwtauth.model.request.auth.UpdateUserRequest;
+import org.foam.springbootjwtauth.model.request.auth.UpdateUsernameRequest;
 import org.foam.springbootjwtauth.model.response.auth.UserResponse;
 import org.foam.springbootjwtauth.service.auth.UserService;
 import org.junit.jupiter.api.Assertions;
@@ -126,6 +128,50 @@ public class UserControllerUnitTests {
 
         // Verify controller called the service
         verify(userService, times(1)).updateUser(updateUserRequest);
+    }
+
+    @Test
+    void testUpdateUsername() {
+        // Arrange
+        UpdateUsernameRequest updateUsernameRequest = new UpdateUsernameRequest(1L, "new-user", "password");
+
+        User updatedUser = new User();
+        updatedUser.setId(1L);
+        updatedUser.setUsername("new-user");
+        updatedUser.setEmail("user@mail.com");
+
+        when(userService.updateUsername(updateUsernameRequest)).thenReturn(updatedUser);
+        when(modelMapper.map(any(User.class), eq(UserResponse.class)))
+                .thenAnswer(invocation -> {
+                    User u = invocation.getArgument(0);
+                    return new UserResponse(u.getId(), u.getUsername(), u.getEmail());
+                });
+
+        // Act
+        ResponseEntity<UserResponse> response = userController.updateUsername(updateUsernameRequest);
+
+        // Assert
+        assertEquals(200, response.getStatusCode().value());
+        Assertions.assertNotNull(response.getBody());
+        assertEquals("new-user", response.getBody().getUsername());
+
+        // Verify
+        verify(userService, times(1)).updateUsername(updateUsernameRequest);
+    }
+
+    @Test
+    void testUpdatePassword() {
+        // Arrange
+        UpdatePasswordRequest updatePasswordRequest = new UpdatePasswordRequest(1L, "password", "new-password");
+
+        // Act
+        ResponseEntity<Void> response = userController.updatePassword(updatePasswordRequest);
+
+        // Assert
+        assertEquals(204, response.getStatusCode().value());
+
+        // Verify
+        verify(userService, times(1)).updatePassword(updatePasswordRequest);
     }
 
     @Test

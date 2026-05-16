@@ -5,7 +5,9 @@ import jakarta.validation.constraints.NotNull;
 import org.foam.springbootjwtauth.annotation.LogMethod;
 import org.foam.springbootjwtauth.model.database.auth.User;
 import org.foam.springbootjwtauth.model.request.auth.RegisterUserRequest;
+import org.foam.springbootjwtauth.model.request.auth.UpdatePasswordRequest;
 import org.foam.springbootjwtauth.model.request.auth.UpdateUserRequest;
+import org.foam.springbootjwtauth.model.request.auth.UpdateUsernameRequest;
 import org.foam.springbootjwtauth.model.response.auth.UserResponse;
 import org.foam.springbootjwtauth.service.auth.UserService;
 import org.modelmapper.ModelMapper;
@@ -59,6 +61,26 @@ public class UserController {
         UserResponse userResponse = modelMapper.map(user, UserResponse.class);
 
         return ResponseEntity.ok().body(userResponse);
+    }
+
+    @LogMethod
+    @PatchMapping("/username")
+    @PreAuthorize("#updateUsernameRequest.id() == principal.id")
+    public ResponseEntity<UserResponse> updateUsername(@Valid @RequestBody UpdateUsernameRequest updateUsernameRequest) {
+        User user = userService.updateUsername(updateUsernameRequest);
+
+        UserResponse userResponse = modelMapper.map(user, UserResponse.class);
+
+        return ResponseEntity.ok().body(userResponse);
+    }
+
+    @LogMethod
+    @PatchMapping("/password")
+    @PreAuthorize("#updatePasswordRequest.id() == principal.id")
+    public ResponseEntity<Void> updatePassword(@Valid @RequestBody UpdatePasswordRequest updatePasswordRequest) {
+        userService.updatePassword(updatePasswordRequest);
+
+        return ResponseEntity.noContent().build();
     }
 
     @LogMethod

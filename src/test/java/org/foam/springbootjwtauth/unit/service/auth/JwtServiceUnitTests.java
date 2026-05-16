@@ -52,7 +52,7 @@ public class JwtServiceUnitTests {
 
         Authority authority = new Authority();
         authority.setAuthority("ROLE_USER");
-        authority.setUsername("testuser");
+        authority.setUser(user);
         user.setAuthorities(List.of(authority));
     }
 
@@ -87,7 +87,7 @@ public class JwtServiceUnitTests {
         ArrayList<Authority> authorities = new ArrayList<>();
         Authority authority = new Authority();
         authority.setAuthority("ROLE_USER");
-        authority.setUsername(mockUser.getUsername());
+        authority.setUser(mockUser);
         authorities.add(authority);
 
         mockUser.setAuthorities(authorities);

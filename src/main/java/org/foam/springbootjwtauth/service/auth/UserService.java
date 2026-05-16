@@ -5,7 +5,10 @@ import org.foam.springbootjwtauth.exception.auth.UserAlreadyExistsException;
 import org.foam.springbootjwtauth.model.database.auth.Authority;
 import org.foam.springbootjwtauth.model.database.auth.User;
 import org.foam.springbootjwtauth.model.request.auth.RegisterUserRequest;
+import org.foam.springbootjwtauth.model.request.auth.UpdatePasswordRequest;
 import org.foam.springbootjwtauth.model.request.auth.UpdateUserRequest;
+import org.foam.springbootjwtauth.model.request.auth.UpdateUsernameRequest;
+import org.foam.springbootjwtauth.repository.auth.RefreshTokenRepository;
 import org.foam.springbootjwtauth.repository.auth.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,17 +30,17 @@ public class UserService implements UserDetailsService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
-    private final AuthorityService authorityService;
+    private final RefreshTokenRepository refreshTokenRepository;
 
     Logger logger = LoggerFactory.getLogger(UserService.class);
 
     @Autowired
     public UserService(UserRepository userRepository,
                        PasswordEncoder passwordEncoder,
-                       AuthorityService authorityService) {
+                       RefreshTokenRepository refreshTokenRepository) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
-        this.authorityService = authorityService;
+        this.refreshTokenRepository = refreshTokenRepository;
     }
 
     @Transactional
@@ -63,7 +66,6 @@ public class UserService implements UserDetailsService {
 
         // create the authority and authorities list
         Authority authority = new Authority();
-        authority.setUsername(registerUserRequest.username());
         authority.setUser(newUser);
         authority.setAuthority("ROLE_USER");
 
@@ -93,7 +95,7 @@ public class UserService implements UserDetailsService {
                 .orElseThrow(() -> new NoSuchElementException("User not found"));
 
         if (!user.getUsername().equals(updateUserRequest.username())) {
-            throw new IllegalArgumentException("Username cannot be changed");
+            throw new IllegalArgumentException("Username cannot be changed through this endpoint. Use PATCH /user/username.");
         }
 
         if (!user.getEmail().equals(updateUserRequest.email()) && doesEmailExist(updateUserRequest.email())) {
@@ -105,6 +107,39 @@ public class UserService implements UserDetailsService {
 
         // save
         return userRepository.save(user);
+    }
+
+    @Transactional
+    public User updateUsername(UpdateUsernameRequest updateUsernameRequest) {
+        User user = userRepository.findById(updateUsernameRequest.id())
+                .orElseThrow(() -> new NoSuchElementException("User not found"));
+
+        validateCurrentPassword(updateUsernameRequest.currentPassword(), user);
+
+        if (user.getUsername().equals(updateUsernameRequest.username())) {
+            return user;
+        }
+
+        if (doesUsernameExist(updateUsernameRequest.username())) {
+            throw new UserAlreadyExistsException("User with username [" + updateUsernameRequest.username() + "] already exists");
+        }
+
+        user.setUsername(updateUsernameRequest.username());
+        refreshTokenRepository.deleteByUserId(user.getId());
+
+        return userRepository.save(user);
+    }
+
+    @Transactional
+    public void updatePassword(UpdatePasswordRequest updatePasswordRequest) {
+        User user = userRepository.findById(updatePasswordRequest.id())
+                .orElseThrow(() -> new NoSuchElementException("User not found"));
+
+        validateCurrentPassword(updatePasswordRequest.currentPassword(), user);
+
+        user.setPassword(passwordEncoder.encode(updatePasswordRequest.newPassword()));
+        refreshTokenRepository.deleteByUserId(user.getId());
+        userRepository.save(user);
     }
 
     @Transactional
@@ -154,4 +189,11 @@ public class UserService implements UserDetailsService {
 
         return userRepository.findAll(pageable);
     }
+
+    private void validateCurrentPassword(String currentPassword, User user) {
+        if (!passwordEncoder.matches(currentPassword, user.getPassword())) {
+            throw new IllegalArgumentException("Invalid credentials");
+        }
+    }
+
 }

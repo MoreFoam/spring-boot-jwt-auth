@@ -1,9 +1,13 @@
 package org.foam.springbootjwtauth.unit.service.auth;
 
 import org.foam.springbootjwtauth.exception.auth.UserAlreadyExistsException;
+import org.foam.springbootjwtauth.model.database.auth.Authority;
 import org.foam.springbootjwtauth.model.database.auth.User;
 import org.foam.springbootjwtauth.model.request.auth.RegisterUserRequest;
+import org.foam.springbootjwtauth.model.request.auth.UpdatePasswordRequest;
 import org.foam.springbootjwtauth.model.request.auth.UpdateUserRequest;
+import org.foam.springbootjwtauth.model.request.auth.UpdateUsernameRequest;
+import org.foam.springbootjwtauth.repository.auth.RefreshTokenRepository;
 import org.foam.springbootjwtauth.repository.auth.UserRepository;
 import org.foam.springbootjwtauth.service.auth.UserService;
 import org.junit.jupiter.api.Test;
@@ -17,6 +21,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.ArrayList;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -29,6 +34,9 @@ public class UserServiceUnitTests {
 
     @Mock
     private PasswordEncoder passwordEncoder;
+
+    @Mock
+    private RefreshTokenRepository refreshTokenRepository;
 
     @InjectMocks
     UserService userService;
@@ -231,6 +239,144 @@ public class UserServiceUnitTests {
         // Verify
         verify(userRepository, times(1)).findById(updateUserRequest.id());
         verify(userRepository, times(1)).getUserByEmail(updateUserRequest.email());
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void testUpdateUsername() {
+        // Arrange
+        UpdateUsernameRequest updateUsernameRequest = new UpdateUsernameRequest(1L, "new-username", "password");
+
+        User user = new User();
+        user.setId(1L);
+        user.setUsername("username");
+        user.setPassword("encoded-password");
+        user.setEmail("user@mail.com");
+
+        Authority authority = new Authority();
+        authority.setAuthority("ROLE_USER");
+        authority.setUser(user);
+        user.setAuthorities(new ArrayList<>(List.of(authority)));
+
+        when(userRepository.findById(updateUsernameRequest.id())).thenReturn(java.util.Optional.of(user));
+        when(passwordEncoder.matches(updateUsernameRequest.currentPassword(), user.getPassword())).thenReturn(true);
+        when(userRepository.getUserByUsername(updateUsernameRequest.username())).thenReturn(null);
+        when(userRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // Act
+        User updatedUser = userService.updateUsername(updateUsernameRequest);
+
+        // Assert
+        assertEquals("new-username", updatedUser.getUsername());
+        assertEquals(List.of("ROLE_USER"), updatedUser.getRoleNames());
+        assertEquals(updatedUser, updatedUser.getAuthorities().iterator().next().getUser());
+
+        // Verify
+        verify(userRepository, times(1)).findById(updateUsernameRequest.id());
+        verify(passwordEncoder, times(1)).matches(updateUsernameRequest.currentPassword(), "encoded-password");
+        verify(userRepository, times(1)).getUserByUsername(updateUsernameRequest.username());
+        verify(refreshTokenRepository, times(1)).deleteByUserId(1L);
+        verify(userRepository, times(1)).save(user);
+    }
+
+    @Test
+    void testUpdateUsername_CurrentPasswordInvalidThrows() {
+        // Arrange
+        UpdateUsernameRequest updateUsernameRequest = new UpdateUsernameRequest(1L, "new-username", "bad-password");
+
+        User user = new User();
+        user.setId(1L);
+        user.setUsername("username");
+        user.setPassword("encoded-password");
+
+        when(userRepository.findById(updateUsernameRequest.id())).thenReturn(java.util.Optional.of(user));
+        when(passwordEncoder.matches(updateUsernameRequest.currentPassword(), user.getPassword())).thenReturn(false);
+
+        // Act & Assert
+        assertThrows(IllegalArgumentException.class, () -> userService.updateUsername(updateUsernameRequest));
+
+        // Verify
+        verify(userRepository, times(1)).findById(updateUsernameRequest.id());
+        verify(refreshTokenRepository, never()).deleteByUserId(anyLong());
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void testUpdateUsername_UsernameAlreadyExistsThrows() {
+        // Arrange
+        UpdateUsernameRequest updateUsernameRequest = new UpdateUsernameRequest(1L, "new-username", "password");
+
+        User user = new User();
+        user.setId(1L);
+        user.setUsername("username");
+        user.setPassword("encoded-password");
+
+        User existingUser = new User();
+        existingUser.setId(2L);
+        existingUser.setUsername(updateUsernameRequest.username());
+
+        when(userRepository.findById(updateUsernameRequest.id())).thenReturn(java.util.Optional.of(user));
+        when(passwordEncoder.matches(updateUsernameRequest.currentPassword(), user.getPassword())).thenReturn(true);
+        when(userRepository.getUserByUsername(updateUsernameRequest.username())).thenReturn(existingUser);
+
+        // Act & Assert
+        assertThrows(UserAlreadyExistsException.class, () -> userService.updateUsername(updateUsernameRequest));
+
+        // Verify
+        verify(userRepository, times(1)).findById(updateUsernameRequest.id());
+        verify(userRepository, times(1)).getUserByUsername(updateUsernameRequest.username());
+        verify(refreshTokenRepository, never()).deleteByUserId(anyLong());
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void testUpdatePassword() {
+        // Arrange
+        UpdatePasswordRequest updatePasswordRequest = new UpdatePasswordRequest(1L, "password", "new-password");
+
+        User user = new User();
+        user.setId(1L);
+        user.setUsername("username");
+        user.setPassword("encoded-password");
+
+        when(userRepository.findById(updatePasswordRequest.id())).thenReturn(java.util.Optional.of(user));
+        when(passwordEncoder.matches(updatePasswordRequest.currentPassword(), user.getPassword())).thenReturn(true);
+        when(passwordEncoder.encode(updatePasswordRequest.newPassword())).thenReturn("encoded-new-password");
+
+        // Act
+        userService.updatePassword(updatePasswordRequest);
+
+        // Assert
+        assertEquals("encoded-new-password", user.getPassword());
+
+        // Verify
+        verify(userRepository, times(1)).findById(updatePasswordRequest.id());
+        verify(passwordEncoder, times(1)).matches(updatePasswordRequest.currentPassword(), "encoded-password");
+        verify(passwordEncoder, times(1)).encode(updatePasswordRequest.newPassword());
+        verify(refreshTokenRepository, times(1)).deleteByUserId(1L);
+        verify(userRepository, times(1)).save(user);
+    }
+
+    @Test
+    void testUpdatePassword_CurrentPasswordInvalidThrows() {
+        // Arrange
+        UpdatePasswordRequest updatePasswordRequest = new UpdatePasswordRequest(1L, "bad-password", "new-password");
+
+        User user = new User();
+        user.setId(1L);
+        user.setUsername("username");
+        user.setPassword("encoded-password");
+
+        when(userRepository.findById(updatePasswordRequest.id())).thenReturn(java.util.Optional.of(user));
+        when(passwordEncoder.matches(updatePasswordRequest.currentPassword(), user.getPassword())).thenReturn(false);
+
+        // Act & Assert
+        assertThrows(IllegalArgumentException.class, () -> userService.updatePassword(updatePasswordRequest));
+
+        // Verify
+        verify(userRepository, times(1)).findById(updatePasswordRequest.id());
+        verify(passwordEncoder, never()).encode(anyString());
+        verify(refreshTokenRepository, never()).deleteByUserId(anyLong());
         verify(userRepository, never()).save(any());
     }
 

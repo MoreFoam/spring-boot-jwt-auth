@@ -6,7 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
 
-public interface AuthorityRepository extends JpaRepository<Authority, Authority.AuthorityPK> {
+public interface AuthorityRepository extends JpaRepository<Authority, Long> {
 
-    List<Authority> getAuthoritiesByUsername(@NonNull String username);
+    List<Authority> getAuthoritiesByUserUsername(@NonNull String username);
 }

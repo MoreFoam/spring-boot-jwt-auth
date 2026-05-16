@@ -19,7 +19,7 @@ public class AuthorityService {
 
     public List<Authority> getAuthoritiesByUsername(String username) {
 
-        return authorityRepository.getAuthoritiesByUsername(username);
+        return authorityRepository.getAuthoritiesByUserUsername(username);
     }
 
     public Authority saveAuthority(Authority authority) {

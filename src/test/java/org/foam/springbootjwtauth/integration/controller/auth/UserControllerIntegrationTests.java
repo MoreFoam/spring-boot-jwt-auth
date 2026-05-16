@@ -20,6 +20,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -49,6 +50,7 @@ public class UserControllerIntegrationTests {
     @BeforeEach
     public void cleanupBeforeEach() {
         deleteUserIfExists("user");
+        deleteUserIfExists("new-user");
         deleteUserIfExists("admin");
         deleteUserIfExists("other-user");
     }
@@ -56,6 +58,7 @@ public class UserControllerIntegrationTests {
     @AfterEach
     public void cleanupAfterEach() {
         deleteUserIfExists("user");
+        deleteUserIfExists("new-user");
         deleteUserIfExists("admin");
         deleteUserIfExists("other-user");
     }
@@ -215,6 +218,33 @@ public class UserControllerIntegrationTests {
     }
 
     @Test
+    public void cannotUpdateUsernameThroughGenericUpdate() throws Exception {
+        registerUser();
+
+        LoginResponse loginResponse = authService.login(new LoginRequest("user", "password"));
+
+        try {
+            Long userId = userRepository.getUserByUsername("user").getId();
+            String updateUserJson = String.format("""
+                        {
+                            "id":"%s",
+                            "username": "new-user",
+                            "email": "user@user.com"
+                        }
+                    """, userId);
+
+            mockMvc.perform(put("/user")
+                            .header("Authorization", "Bearer " + loginResponse.getAccessToken())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(updateUserJson))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(content().string("Username cannot be changed through this endpoint. Use PATCH /user/username."));
+        } finally {
+            deleteRefreshToken(loginResponse);
+        }
+    }
+
+    @Test
     public void cannotUpdateAnotherUserAsUser() throws Exception {
         registerUser();
         registerUser("other-user", "other@user.com");
@@ -236,6 +266,159 @@ public class UserControllerIntegrationTests {
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(updateUserJson))
                     .andExpect(status().isForbidden());
+        } finally {
+            deleteRefreshToken(loginResponse);
+        }
+    }
+
+    @Test
+    public void canUpdateUsernameAsUser() throws Exception {
+        registerUser();
+
+        LoginResponse loginResponse = authService.login(new LoginRequest("user", "password"));
+
+        try {
+            Long userId = userRepository.getUserByUsername("user").getId();
+            Long refreshTokenId = jwtService.extractAllClaims(loginResponse.getRefreshToken()).get("id", Long.class);
+            String updateUsernameJson = String.format("""
+                        {
+                            "id":"%s",
+                            "username": "new-user",
+                            "currentPassword": "password"
+                        }
+                    """, userId);
+
+            mockMvc.perform(patch("/user/username")
+                            .header("Authorization", "Bearer " + loginResponse.getAccessToken())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(updateUsernameJson))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.id").value(userId))
+                    .andExpect(jsonPath("$.username").value("new-user"))
+                    .andExpect(jsonPath("$.email").value("user@user.com"));
+
+            Assertions.assertNull(userRepository.getUserByUsername("user"));
+            Assertions.assertNotNull(userRepository.getUserByUsername("new-user"));
+            Assertions.assertTrue(refreshTokenRepository.findById(refreshTokenId).isEmpty());
+
+            mockMvc.perform(get("/user?userId=" + userId)
+                            .header("Authorization", "Bearer " + loginResponse.getAccessToken()))
+                    .andExpect(status().isForbidden());
+
+            LoginResponse newLoginResponse = authService.login(new LoginRequest("new-user", "password"));
+            deleteRefreshToken(newLoginResponse);
+        } finally {
+            deleteRefreshToken(loginResponse);
+            deleteUserIfExists("new-user");
+        }
+    }
+
+    @Test
+    public void cannotUpdateUsernameWithInvalidPassword() throws Exception {
+        registerUser();
+
+        LoginResponse loginResponse = authService.login(new LoginRequest("user", "password"));
+
+        try {
+            Long userId = userRepository.getUserByUsername("user").getId();
+            String updateUsernameJson = String.format("""
+                        {
+                            "id":"%s",
+                            "username": "new-user",
+                            "currentPassword": "bad-password"
+                        }
+                    """, userId);
+
+            mockMvc.perform(patch("/user/username")
+                            .header("Authorization", "Bearer " + loginResponse.getAccessToken())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(updateUsernameJson))
+                    .andExpect(status().isBadRequest());
+        } finally {
+            deleteRefreshToken(loginResponse);
+        }
+    }
+
+    @Test
+    public void cannotUpdateAnotherUsersUsernameAsUser() throws Exception {
+        registerUser();
+        registerUser("other-user", "other@user.com");
+
+        LoginResponse loginResponse = authService.login(new LoginRequest("user", "password"));
+
+        try {
+            Long otherUserId = userRepository.getUserByUsername("other-user").getId();
+            String updateUsernameJson = String.format("""
+                        {
+                            "id":"%s",
+                            "username": "new-user",
+                            "currentPassword": "password"
+                        }
+                    """, otherUserId);
+
+            mockMvc.perform(patch("/user/username")
+                            .header("Authorization", "Bearer " + loginResponse.getAccessToken())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(updateUsernameJson))
+                    .andExpect(status().isForbidden());
+        } finally {
+            deleteRefreshToken(loginResponse);
+        }
+    }
+
+    @Test
+    public void canUpdatePasswordAsUser() throws Exception {
+        registerUser();
+
+        LoginResponse loginResponse = authService.login(new LoginRequest("user", "password"));
+
+        try {
+            Long userId = userRepository.getUserByUsername("user").getId();
+            Long refreshTokenId = jwtService.extractAllClaims(loginResponse.getRefreshToken()).get("id", Long.class);
+            String updatePasswordJson = String.format("""
+                        {
+                            "id":"%s",
+                            "currentPassword": "password",
+                            "newPassword": "new-password"
+                        }
+                    """, userId);
+
+            mockMvc.perform(patch("/user/password")
+                            .header("Authorization", "Bearer " + loginResponse.getAccessToken())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(updatePasswordJson))
+                    .andExpect(status().isNoContent());
+
+            Assertions.assertTrue(refreshTokenRepository.findById(refreshTokenId).isEmpty());
+
+            LoginResponse newLoginResponse = authService.login(new LoginRequest("user", "new-password"));
+            deleteRefreshToken(newLoginResponse);
+        } finally {
+            deleteRefreshToken(loginResponse);
+        }
+    }
+
+    @Test
+    public void cannotUpdatePasswordWithInvalidPassword() throws Exception {
+        registerUser();
+
+        LoginResponse loginResponse = authService.login(new LoginRequest("user", "password"));
+
+        try {
+            Long userId = userRepository.getUserByUsername("user").getId();
+            String updatePasswordJson = String.format("""
+                        {
+                            "id":"%s",
+                            "currentPassword": "bad-password",
+                            "newPassword": "new-password"
+                        }
+                    """, userId);
+
+            mockMvc.perform(patch("/user/password")
+                            .header("Authorization", "Bearer " + loginResponse.getAccessToken())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(updatePasswordJson))
+                    .andExpect(status().isBadRequest());
         } finally {
             deleteRefreshToken(loginResponse);
         }
@@ -323,7 +506,6 @@ public class UserControllerIntegrationTests {
 
         User admin = userRepository.getUserByUsername("admin");
         Authority adminAuthority = new Authority();
-        adminAuthority.setUsername("admin");
         adminAuthority.setAuthority("ROLE_ADMIN");
         adminAuthority.setUser(admin);
         admin.getAuthorities().add(adminAuthority);

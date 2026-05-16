@@ -244,7 +244,33 @@ curl -X PUT http://localhost:8080/api/user \
   -d '{"id":1,"username":"user","email":"user@user.com"}'
 ```
 
-### 5) Logout
+### 5) Update Username
+**Endpoint:** `PATCH /user/username`  
+**Headers:** `Authorization: Bearer <accessToken>`  
+**Body:**
+```json
+{
+  "id": 1,
+  "username": "new-user",
+  "currentPassword": "password"
+}
+```
+This updates the username, deletes existing refresh tokens for the user, and requires login again under the new username.
+
+### 6) Update Password
+**Endpoint:** `PATCH /user/password`  
+**Headers:** `Authorization: Bearer <accessToken>`  
+**Body:**
+```json
+{
+  "id": 1,
+  "currentPassword": "password",
+  "newPassword": "new-password"
+}
+```
+This updates the password hash and deletes existing refresh tokens for the user.
+
+### 7) Logout
 **Endpoint:** `POST /auth/logout`  
 **Headers:** `Authorization: Bearer <accessToken>`  
 **Body:**
@@ -263,7 +289,7 @@ curl -X POST http://localhost:8080/api/auth/logout \
   -d "{\"refreshToken\":\"$REFRESH_TOKEN\",\"username\":\"user\",\"deviceId\":\"$DEVICE_ID\"}"
 ```
 
-### 6) Refresh Access Token
+### 8) Refresh Access Token
 **Endpoint:** `POST /auth/refresh`  
 **Body:**
 ```json
@@ -368,7 +394,7 @@ Key classes (package org.foam.springbootjwtauth)
 
 Entities
 - users: id, username, password (Argon2 hash), email, flags, authorities
-- authorities: composite key (username, authority) like ROLE_USER / ROLE_ADMIN
+- authorities: id, user_id, authority like ROLE_USER / ROLE_ADMIN
 - refresh_token: id, token (hash), user_id, device_id
 
 
