@@ -48,11 +48,13 @@ public class UserControllerIntegrationTests {
     @BeforeEach
     public void cleanupBeforeEach() {
         deleteUserIfExists("user");
+        deleteUserIfExists("other-user");
     }
 
     @AfterEach
     public void cleanupAfterEach() {
         deleteUserIfExists("user");
+        deleteUserIfExists("other-user");
     }
 
     @Test
@@ -76,6 +78,40 @@ public class UserControllerIntegrationTests {
     }
 
     @Test
+    public void cannotRegisterDuplicateUsername() throws Exception {
+        registerUser();
+
+        String registerRequestJson = """
+                    {
+                        "username": "user",
+                        "email": "other@user.com",
+                        "password": "password"
+                    }
+                """;
+
+        mockMvc.perform(post("/user/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(registerRequestJson))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    public void cannotRegisterBlankUsername() throws Exception {
+        String registerRequestJson = """
+                    {
+                        "username": "",
+                        "email": "user@user.com",
+                        "password": "password"
+                    }
+                """;
+
+        mockMvc.perform(post("/user/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(registerRequestJson))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     public void canGetAsUser() throws Exception {
         registerUser();
         // login as user
@@ -96,6 +132,30 @@ public class UserControllerIntegrationTests {
             // clean up
             Long refreshTokenId = jwtService.extractAllClaims(loginResponse.getRefreshToken()).get("id", Long.class);
             refreshTokenRepository.findById(refreshTokenId).ifPresent(refreshTokenRepository::delete);
+        }
+    }
+
+    @Test
+    public void cannotGetUserWithoutAuthentication() throws Exception {
+        mockMvc.perform(get("/user?userId=1"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    public void cannotGetAnotherUserAsUser() throws Exception {
+        registerUser();
+        registerUser("other-user", "other@user.com");
+
+        LoginResponse loginResponse = authService.login(new LoginRequest("user", "password"));
+
+        try {
+            Long otherUserId = userRepository.getUserByUsername("other-user").getId();
+
+            mockMvc.perform(get("/user?userId=" + otherUserId)
+                            .header("Authorization", "Bearer " + loginResponse.getAccessToken()))
+                    .andExpect(status().isForbidden());
+        } finally {
+            deleteRefreshToken(loginResponse);
         }
     }
 
@@ -132,6 +192,33 @@ public class UserControllerIntegrationTests {
     }
 
     @Test
+    public void cannotUpdateAnotherUserAsUser() throws Exception {
+        registerUser();
+        registerUser("other-user", "other@user.com");
+
+        LoginResponse loginResponse = authService.login(new LoginRequest("user", "password"));
+
+        try {
+            Long otherUserId = userRepository.getUserByUsername("other-user").getId();
+            String updateUserJson = String.format("""
+                        {
+                            "id":"%s",
+                            "username": "other-user",
+                            "email": "updated-other@user.com"
+                        }
+                    """, otherUserId);
+
+            mockMvc.perform(put("/user")
+                            .header("Authorization", "Bearer " + loginResponse.getAccessToken())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(updateUserJson))
+                    .andExpect(status().isForbidden());
+        } finally {
+            deleteRefreshToken(loginResponse);
+        }
+    }
+
+    @Test
     public void canDeleteAsUser() throws Exception {
         registerUser();
         // login as user
@@ -151,12 +238,37 @@ public class UserControllerIntegrationTests {
 
     }
 
+    @Test
+    public void cannotDeleteAnotherUserAsUser() throws Exception {
+        registerUser();
+        registerUser("other-user", "other@user.com");
+
+        LoginResponse loginResponse = authService.login(new LoginRequest("user", "password"));
+
+        try {
+            mockMvc.perform(delete("/user?username=other-user")
+                            .header("Authorization", "Bearer " + loginResponse.getAccessToken()))
+                    .andExpect(status().isForbidden());
+        } finally {
+            deleteRefreshToken(loginResponse);
+        }
+    }
+
     private void registerUser() {
+        registerUser("user", "user@user.com");
+    }
+
+    private void registerUser(String username, String email) {
         userService.registerUser(new RegisterUserRequest(
-                "user",
-                "user@user.com",
+                username,
+                email,
                 "password")
         );
+    }
+
+    private void deleteRefreshToken(LoginResponse loginResponse) {
+        Long refreshTokenId = jwtService.extractAllClaims(loginResponse.getRefreshToken()).get("id", Long.class);
+        refreshTokenRepository.findById(refreshTokenId).ifPresent(refreshTokenRepository::delete);
     }
 
     private void deleteUserIfExists(String username) {

@@ -80,6 +80,36 @@ public class AuthControllerIntegrationTests {
     }
 
     @Test
+    public void cannotLoginWithInvalidPassword() throws Exception {
+        String loginRequestJson = """
+                    {
+                        "username": "user",
+                        "password": "bad-password"
+                    }
+                """;
+
+        mockMvc.perform(post("/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(loginRequestJson))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    public void cannotLoginWithBlankUsername() throws Exception {
+        String loginRequestJson = """
+                    {
+                        "username": "",
+                        "password": "password"
+                    }
+                """;
+
+        mockMvc.perform(post("/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(loginRequestJson))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     public void canLogout() throws Exception {
         // log in
         String loginRequestJson = """
@@ -123,6 +153,38 @@ public class AuthControllerIntegrationTests {
         } finally {
             refreshTokenRepository.findById(refreshTokenId).ifPresent(refreshTokenRepository::delete);
         }
+    }
+
+    @Test
+    public void cannotRefreshWithInvalidRefreshToken() throws Exception {
+        String refreshRequestJson = """
+                    {
+                        "refreshToken": "invalid-refresh-token",
+                        "username": "user",
+                        "deviceId":"device-id"
+                    }
+                """;
+
+        mockMvc.perform(post("/auth/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(refreshRequestJson))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    public void cannotLogoutWithInvalidRefreshToken() throws Exception {
+        String logoutRequestJson = """
+                    {
+                        "refreshToken": "invalid-refresh-token",
+                        "username": "user",
+                        "deviceId":"device-id"
+                    }
+                """;
+
+        mockMvc.perform(post("/auth/logout")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(logoutRequestJson))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
