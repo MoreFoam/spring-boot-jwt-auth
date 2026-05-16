@@ -1,9 +1,9 @@
 package org.foam.springbootjwtauth.controller.auth;
 
-import jakarta.validation.Valid;
+import io.jsonwebtoken.JwtException;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
-import io.jsonwebtoken.JwtException;
+import jakarta.validation.Valid;
 import org.foam.springbootjwtauth.annotation.LogMethod;
 import org.foam.springbootjwtauth.config.RefreshCookieProperties;
 import org.foam.springbootjwtauth.exception.auth.RefreshTokenNotFoundException;
@@ -21,11 +21,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.NoSuchElementException;
 
@@ -117,6 +115,14 @@ public class AuthController {
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, clearRefreshCookie().toString())
                 .build();
+    }
+
+    @LogMethod
+    @GetMapping("/web/csrf")
+    public ResponseEntity<Void> csrf(CsrfToken token) {
+        token.getToken();
+
+        return ResponseEntity.noContent().build();
     }
 
     private String getRefreshTokenCookieValue(HttpServletRequest httpServletRequest) {

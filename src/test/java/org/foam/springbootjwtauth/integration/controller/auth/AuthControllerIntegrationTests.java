@@ -16,14 +16,14 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -212,7 +212,6 @@ public class AuthControllerIntegrationTests {
         String responseBody = loginResult.getResponse().getContentAsString();
         JsonNode jsonResponse = objectMapper.readTree(responseBody);
 
-        String accessToken = jsonResponse.get("accessToken").asString();
         String refreshToken = jsonResponse.get("refreshToken").asString();
         String deviceId = jsonResponse.get("deviceId").asString();
 
@@ -254,7 +253,22 @@ public class AuthControllerIntegrationTests {
     }
 
     @Test
-    public void canWebRefreshWithRefreshTokenCookie() throws Exception {
+    public void cannotWebLoginWithoutCsrfToken() throws Exception {
+        String loginRequestJson = """
+                    {
+                        "username": "user",
+                        "password": "password"
+                    }
+                """;
+
+        mockMvc.perform(post("/auth/web/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(loginRequestJson))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    public void canWebRefreshWithRefreshTokenCookieAndCsrfToken() throws Exception {
         WebLoginResult webLoginResult = webLogin();
 
         String refreshRequestJson = String.format("""
@@ -265,7 +279,11 @@ public class AuthControllerIntegrationTests {
                 """, webLoginResult.deviceId());
 
         try {
+            CsrfResult csrf = getCsrfToken();
+
             mockMvc.perform(post("/auth/web/refresh")
+                            .cookie(csrf.cookie())
+                            .header("X-XSRF-TOKEN", csrf.token())
                             .cookie(webLoginResult.refreshTokenCookie())
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(refreshRequestJson))
@@ -285,14 +303,18 @@ public class AuthControllerIntegrationTests {
                     }
                 """;
 
+        CsrfResult csrf = getCsrfToken();
+
         mockMvc.perform(post("/auth/web/refresh")
+                        .cookie(csrf.cookie())
+                        .header("X-XSRF-TOKEN", csrf.token())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(refreshRequestJson))
                 .andExpect(status().isBadRequest());
     }
 
     @Test
-    public void canWebLogoutWithRefreshTokenCookie() throws Exception {
+    public void canWebLogoutWithRefreshTokenCookieAndCsrfToken() throws Exception {
         WebLoginResult webLoginResult = webLogin();
         Long refreshTokenId = jwtService.extractAllClaims(webLoginResult.refreshToken()).get("id", Long.class);
 
@@ -303,7 +325,11 @@ public class AuthControllerIntegrationTests {
                     }
                 """, webLoginResult.deviceId());
 
+        CsrfResult csrf = getCsrfToken();
+
         MvcResult logoutResult = mockMvc.perform(post("/auth/web/logout")
+                        .cookie(csrf.cookie())
+                        .header("X-XSRF-TOKEN", csrf.token())
                         .cookie(webLoginResult.refreshTokenCookie())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(logoutRequestJson))
@@ -326,7 +352,11 @@ public class AuthControllerIntegrationTests {
                     }
                 """;
 
+        CsrfResult csrf = getCsrfToken();
+
         MvcResult logoutResult = mockMvc.perform(post("/auth/web/logout")
+                        .cookie(csrf.cookie())
+                        .header("X-XSRF-TOKEN", csrf.token())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(logoutRequestJson))
                 .andExpect(status().isOk())
@@ -338,7 +368,89 @@ public class AuthControllerIntegrationTests {
         assertTrue(clearCookieHeader.contains("Max-Age=0"));
     }
 
+    @Test
+    public void cannotWebLogoutWithoutCsrfToken() throws Exception {
+        WebLoginResult webLoginResult = webLogin();
+
+        String logoutRequestJson = String.format("""
+                    {
+                        "username": "user",
+                        "deviceId":"%s"
+                    }
+                """, webLoginResult.deviceId());
+
+        try {
+            mockMvc.perform(post("/auth/web/logout")
+                            .cookie(webLoginResult.refreshTokenCookie())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(logoutRequestJson))
+                    .andExpect(status().isForbidden());
+        } finally {
+            deleteRefreshToken(webLoginResult.refreshToken());
+        }
+    }
+
+    @Test
+    public void canGetCsrfCookie() throws Exception {
+        MvcResult csrfResult = mockMvc.perform(get("/auth/web/csrf")
+                        .session(new MockHttpSession())) // Force new session, as the mock session from other tests may already have created a CSRF token
+                .andExpect(status().isNoContent())
+                .andReturn();
+
+        String setCookieHeader = csrfResult.getResponse().getHeader(HttpHeaders.SET_COOKIE);
+
+        assertNotNull(setCookieHeader);
+        assertTrue(setCookieHeader.contains("XSRF-TOKEN="));
+
+        String csrfToken = extractCookieValue(setCookieHeader, "XSRF-TOKEN");
+
+        assertFalse(csrfToken.isBlank());
+    }
+
+    @Test
+    public void cannotWebRefreshWithoutCsrfToken() throws Exception {
+        WebLoginResult webLoginResult = webLogin();
+
+        String refreshRequestJson = String.format("""
+                    {
+                        "username": "user",
+                        "deviceId":"%s"
+                    }
+                """, webLoginResult.deviceId());
+
+        try {
+            CsrfResult csrf = getCsrfToken();
+
+            mockMvc.perform(post("/auth/web/refresh")
+                            .cookie(webLoginResult.refreshTokenCookie())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(refreshRequestJson))
+                    .andExpect(status().isForbidden());
+        } finally {
+            deleteRefreshToken(webLoginResult.refreshToken());
+        }
+    }
+
+    private CsrfResult getCsrfToken() throws Exception {
+        MvcResult csrfResult = mockMvc.perform(get("/auth/web/csrf"))
+                .andExpect(status().isNoContent())
+                .andReturn();
+
+        String setCookieHeader = csrfResult.getResponse().getHeader(HttpHeaders.SET_COOKIE);
+        assertNotNull(setCookieHeader);
+
+        String token = extractCookieValue(setCookieHeader, "XSRF-TOKEN");
+        assertFalse(token.isBlank());
+
+        return new CsrfResult(token, new Cookie("XSRF-TOKEN", token));
+    }
+
+    private record CsrfResult(String token, Cookie cookie) {
+    }
+
     private WebLoginResult webLogin() throws Exception {
+        CsrfResult csrf = getCsrfToken();
+
         String loginRequestJson = """
                     {
                         "username": "user",
@@ -347,6 +459,9 @@ public class AuthControllerIntegrationTests {
                 """;
 
         MvcResult loginResult = mockMvc.perform(post("/auth/web/login")
+                        .cookie(csrf.cookie())
+                        .header("X-XSRF-TOKEN", csrf.token())
+                        .header("XSRF-TOKEN", csrf.token())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(loginRequestJson))
                 .andExpect(status().isOk())
