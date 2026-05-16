@@ -396,6 +396,7 @@ public class UserServiceUnitTests {
 
         // Verify
         verify(userRepository, times(1)).getUserByUsername(username);
+        verify(refreshTokenRepository, times(1)).deleteByUserId(1L);
         verify(userRepository, times(1)).delete(user);
     }
 
@@ -411,6 +412,7 @@ public class UserServiceUnitTests {
 
         // Verify
         verify(userRepository, times(1)).getUserByUsername(username);
+        verify(refreshTokenRepository, never()).deleteByUserId(anyLong());
         verify(userRepository, never()).delete(any());
     }
 

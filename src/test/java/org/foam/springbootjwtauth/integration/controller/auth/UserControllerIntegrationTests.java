@@ -16,8 +16,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -144,7 +146,29 @@ public class UserControllerIntegrationTests {
     @Test
     public void cannotGetUserWithoutAuthentication() throws Exception {
         mockMvc.perform(get("/user?userId=1"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    public void cannotGetUserWithInvalidToken() throws Exception {
+        mockMvc.perform(get("/user?userId=1")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer invalid-token"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    public void corsPreflightAllowsPatchUserEndpoints() throws Exception {
+        MvcResult result = mockMvc.perform(options("/user/username")
+                        .header(HttpHeaders.ORIGIN, "http://localhost:3000")
+                        .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "PATCH"))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        Assertions.assertEquals(
+                "http://localhost:3000",
+                result.getResponse().getHeader(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN));
+        Assertions.assertTrue(
+                result.getResponse().getHeader(HttpHeaders.ACCESS_CONTROL_ALLOW_METHODS).contains("PATCH"));
     }
 
     @Test
@@ -303,7 +327,7 @@ public class UserControllerIntegrationTests {
 
             mockMvc.perform(get("/user?userId=" + userId)
                             .header("Authorization", "Bearer " + loginResponse.getAccessToken()))
-                    .andExpect(status().isForbidden());
+                    .andExpect(status().isUnauthorized());
 
             LoginResponse newLoginResponse = authService.login(new LoginRequest("new-user", "password"));
             deleteRefreshToken(newLoginResponse);
@@ -464,6 +488,9 @@ public class UserControllerIntegrationTests {
             mockMvc.perform(delete("/user?username=user")
                             .header("Authorization", "Bearer " + loginResponse.getAccessToken()))
                     .andExpect(status().isNoContent());
+
+            Long refreshTokenId = jwtService.extractAllClaims(loginResponse.getRefreshToken()).get("id", Long.class);
+            Assertions.assertTrue(refreshTokenRepository.findById(refreshTokenId).isEmpty());
         } finally {
             // clean up
             Long refreshTokenId = jwtService.extractAllClaims(loginResponse.getRefreshToken()).get("id", Long.class);

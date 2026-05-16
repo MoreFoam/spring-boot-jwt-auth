@@ -150,6 +150,7 @@ public class UserService implements UserDetailsService {
             throw new UsernameNotFoundException(username);
         }
 
+        refreshTokenRepository.deleteByUserId(user.getId());
         userRepository.delete(user);
     }
 
