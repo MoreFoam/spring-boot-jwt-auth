@@ -119,6 +119,7 @@ public class AuthController {
                 .build();
     }
 
+    @LogMethod
     @GetMapping("/web/csrf")
     public ResponseEntity<CsrfResponse> csrf(CsrfToken token) {
         return ResponseEntity.ok(new CsrfResponse(token.getToken(), token.getHeaderName()));

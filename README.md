@@ -149,8 +149,10 @@ These defaults are in src/main/resources/application.properties. Review and chan
   - Use secure=true when serving over HTTPS. If the browser client and API are cross-site, use SameSite=None together with secure=true for both browser cookies.
 
 Additional critical warnings
-- Do not log credentials or tokens
-  - LogMethodAspect.java can log request/response bodies that contain credentials or tokens at the debug level. Avoid enabling debug logging for sensitive environments unless request/response logging is removed or redacted.
+- Logging and redaction
+  - JwtAuthFilter logs authentication flow details without logging raw Authorization headers or JWT values.
+  - LogMethodAspect logs annotated method arguments and responses only at the debug level and redacts sensitive fields such as passwords, tokens, authorization values, and cookies.
+  - Keep debug logging disabled by default in production unless the extra request/response detail is needed for a specific investigation.
 - Externalize secrets for public repos/CI
   - Move secrets (DB password, JWT key) to environment variables or a secure vault. Do not commit real secrets.
 - Context path
@@ -374,7 +376,7 @@ Entities
 ## <u>Production hardening notes</u>
 - Replace plaintext properties with environment variables or a secrets manager.
 - Change JWT secret and rotate periodically; consider key identifiers (kid) if adding rotation.
-- Remove any logging of Authorization headers and tokens.
+- Keep sensitive logging redaction in place and avoid adding logs that print raw Authorization headers, cookies, passwords, or token values.
 - Use Flyway/Liquibase instead of ddl-auto=update.
 - Consider a blacklist/whitelist or short access token TTL plus sliding refresh for better compromise windows.
 - Strengthen validation annotations where needed, such as @Email for email fields and @Size for usernames/passwords.
