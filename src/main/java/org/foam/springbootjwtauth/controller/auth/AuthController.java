@@ -11,6 +11,7 @@ import org.foam.springbootjwtauth.model.request.auth.LoginRequest;
 import org.foam.springbootjwtauth.model.request.auth.LogoutRequest;
 import org.foam.springbootjwtauth.model.request.auth.RefreshRequest;
 import org.foam.springbootjwtauth.model.request.auth.WebSessionRequest;
+import org.foam.springbootjwtauth.model.response.auth.CsrfResponse;
 import org.foam.springbootjwtauth.model.response.auth.LoginResponse;
 import org.foam.springbootjwtauth.model.response.auth.RefreshResponse;
 import org.foam.springbootjwtauth.model.response.auth.WebLoginResponse;
@@ -107,7 +108,8 @@ public class AuthController {
                         refreshToken,
                         webSessionRequest.username(),
                         webSessionRequest.deviceId()));
-            } catch (IllegalArgumentException | JwtException | RefreshTokenNotFoundException | NoSuchElementException ignored) {
+            } catch (IllegalArgumentException | JwtException | RefreshTokenNotFoundException |
+                     NoSuchElementException ignored) {
                 // Browser logout should still clear the local cookie even if the server-side token is already invalid.
             }
         }
@@ -117,12 +119,9 @@ public class AuthController {
                 .build();
     }
 
-    @LogMethod
     @GetMapping("/web/csrf")
-    public ResponseEntity<Void> csrf(CsrfToken token) {
-        token.getToken();
-
-        return ResponseEntity.noContent().build();
+    public ResponseEntity<CsrfResponse> csrf(CsrfToken token) {
+        return ResponseEntity.ok(new CsrfResponse(token.getToken(), token.getHeaderName()));
     }
 
     private String getRefreshTokenCookieValue(HttpServletRequest httpServletRequest) {

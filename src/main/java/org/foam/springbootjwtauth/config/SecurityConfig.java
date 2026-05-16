@@ -34,10 +34,16 @@ public class SecurityConfig {
 
     private final CorsProperties corsProperties;
 
+    private final CsrfCookieProperties csrfCookieProperties;
+
     @Autowired
-    public SecurityConfig(JwtAuthFilter jwtAuthFilter, CorsProperties corsProperties) {
+    public SecurityConfig(
+            JwtAuthFilter jwtAuthFilter,
+            CorsProperties corsProperties,
+            CsrfCookieProperties csrfCookieProperties) {
         this.jwtAuthFilter = jwtAuthFilter;
         this.corsProperties = corsProperties;
+        this.csrfCookieProperties = csrfCookieProperties;
     }
 
     @Bean
@@ -69,7 +75,7 @@ public class SecurityConfig {
                         })
                 )
                 .csrf(csrf -> csrf
-                        .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                        .csrfTokenRepository(csrfTokenRepository())
                         .csrfTokenRequestHandler(requestHandler)
                         .ignoringRequestMatchers(request -> {
                             String contextPath = request.getContextPath();
@@ -83,6 +89,16 @@ public class SecurityConfig {
                 )
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();
+    }
+
+    private CookieCsrfTokenRepository csrfTokenRepository() {
+        CookieCsrfTokenRepository repository = CookieCsrfTokenRepository.withHttpOnlyFalse();
+        repository.setCookiePath(csrfCookieProperties.getPath());
+        repository.setCookieCustomizer(cookie -> cookie
+                .secure(csrfCookieProperties.isSecure())
+                .sameSite(csrfCookieProperties.getSameSite()));
+
+        return repository;
     }
 
     @Bean
