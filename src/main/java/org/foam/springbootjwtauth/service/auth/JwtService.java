@@ -20,6 +20,10 @@ import java.util.*;
 @Service
 public class JwtService {
 
+    private static final String TOKEN_TYPE_CLAIM = "tokenType";
+    private static final String ACCESS_TOKEN_TYPE = "access";
+    private static final String REFRESH_TOKEN_TYPE = "refresh";
+
     @Value("${spring-boot-jwt-auth.security.jwt.secret-key}")
     private String secretKey;
 
@@ -40,6 +44,7 @@ public class JwtService {
 
     public String generateAccessToken(User user) {
         Map<String, Object> claims = new HashMap<>();
+        claims.put(TOKEN_TYPE_CLAIM, ACCESS_TOKEN_TYPE);
         claims.put("userId", user.getId());
         claims.put("roles", user.getRoleNames());
 
@@ -47,10 +52,15 @@ public class JwtService {
     }
 
     public String generateRefreshToken(User user, Long refreshTokenId) {
+        return generateRefreshToken(user, refreshTokenId, UUID.randomUUID().toString());
+    }
+
+    public String generateRefreshToken(User user, Long refreshTokenId, String deviceId) {
         Map<String, Object> claims = new HashMap<>();
+        claims.put(TOKEN_TYPE_CLAIM, REFRESH_TOKEN_TYPE);
         claims.put("id", refreshTokenId);
         claims.put("userId", user.getId());
-        claims.put("deviceId", UUID.randomUUID().toString());
+        claims.put("deviceId", deviceId);
 
         return createRefreshToken(claims, user.getUsername());
     }
@@ -59,7 +69,8 @@ public class JwtService {
         try {
             var claims = extractAllClaims(token);
 
-            return claims.getSubject().equals(user.getUsername())
+            return isAccessToken(claims)
+                    && claims.getSubject().equals(user.getUsername())
                     && !isTokenExpired(claims);
         } catch (JwtException e) { //
             return false;
@@ -68,6 +79,11 @@ public class JwtService {
 
     public Boolean validateRefreshToken(String token, User user) throws RefreshTokenNotFoundException {
         Claims claims = extractAllClaims(token);
+
+        if (!isRefreshToken(claims)) {
+            return false;
+        }
+
         Optional<RefreshToken> refreshTokenOptional = refreshTokenRepository.findById(Long.valueOf(claims.get("id").toString()));
 
         if (refreshTokenOptional.isEmpty()) { // did not find token in db
@@ -84,6 +100,10 @@ public class JwtService {
     }
 
     public Boolean validateExpiredRefreshToken(String token, Claims claims, User user) {
+        if (!isRefreshToken(claims)) {
+            return false;
+        }
+
         Optional<RefreshToken> refreshTokenOptional = refreshTokenRepository.findById(Long.valueOf(claims.get("id").toString()));
 
         if (refreshTokenOptional.isEmpty()) { // did not find token in db
@@ -131,6 +151,14 @@ public class JwtService {
 
     private boolean isTokenExpired(Claims claims) {
         return claims.getExpiration().before(new Date());
+    }
+
+    private boolean isAccessToken(Claims claims) {
+        return ACCESS_TOKEN_TYPE.equals(claims.get(TOKEN_TYPE_CLAIM, String.class));
+    }
+
+    private boolean isRefreshToken(Claims claims) {
+        return REFRESH_TOKEN_TYPE.equals(claims.get(TOKEN_TYPE_CLAIM, String.class));
     }
 
     public Claims extractAllClaims(String token) throws JwtException {

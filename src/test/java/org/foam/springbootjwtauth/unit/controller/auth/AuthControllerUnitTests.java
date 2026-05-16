@@ -86,7 +86,7 @@ public class AuthControllerUnitTests {
     void testRefresh() {
         // Arrange
         RefreshRequest refreshRequest = new RefreshRequest("refresh-token", "username", "device-id");
-        RefreshResponse refreshResponse = new RefreshResponse("new-access-token");
+        RefreshResponse refreshResponse = new RefreshResponse("new-access-token", "new-refresh-token");
         when(authService.refresh(refreshRequest)).thenReturn(refreshResponse);
 
         // Act
@@ -96,6 +96,7 @@ public class AuthControllerUnitTests {
         assertEquals(200, response.getStatusCode().value());
         Assertions.assertNotNull(response.getBody());
         assertEquals("new-access-token", response.getBody().getAccessToken());
+        assertEquals("new-refresh-token", response.getBody().getRefreshToken());
 
         // Verify
         verify(authService, times(1)).refresh(refreshRequest);

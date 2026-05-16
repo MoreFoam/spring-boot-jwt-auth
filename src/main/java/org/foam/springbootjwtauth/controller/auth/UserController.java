@@ -41,7 +41,7 @@ public class UserController {
 
     @LogMethod
     @GetMapping
-    @PreAuthorize("hasRole('ROLE_ADMIN') or #userId == principal.id")
+    @PreAuthorize("hasRole('ADMIN') or #userId == principal.id")
     public ResponseEntity<UserResponse> getUser(@NotNull @RequestParam Long userId) {
         User user = userService.getUser(userId);
 
@@ -52,7 +52,7 @@ public class UserController {
 
     @LogMethod
     @PutMapping
-    @PreAuthorize("hasRole('ROLE_ADMIN') or #updateUserRequest.username() == authentication.name")
+    @PreAuthorize("hasRole('ADMIN') or #updateUserRequest.id() == principal.id")
     public ResponseEntity<UserResponse> updateUser(@Valid @RequestBody UpdateUserRequest updateUserRequest) {
         User user = userService.updateUser(updateUserRequest);
 
@@ -63,7 +63,7 @@ public class UserController {
 
     @LogMethod
     @DeleteMapping
-    @PreAuthorize("hasRole('ROLE_ADMIN') or #username == authentication.name")
+    @PreAuthorize("hasRole('ADMIN') or #username == authentication.name")
     public ResponseEntity<Void> deleteUser(@NotNull @RequestParam String username) {
         userService.deleteUser(username);
 

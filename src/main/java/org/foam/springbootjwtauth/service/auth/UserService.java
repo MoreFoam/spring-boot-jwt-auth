@@ -92,8 +92,15 @@ public class UserService implements UserDetailsService {
         User user = userRepository.findById(updateUserRequest.id())
                 .orElseThrow(() -> new NoSuchElementException("User not found"));
 
+        if (!user.getUsername().equals(updateUserRequest.username())) {
+            throw new IllegalArgumentException("Username cannot be changed");
+        }
+
+        if (!user.getEmail().equals(updateUserRequest.email()) && doesEmailExist(updateUserRequest.email())) {
+            throw new UserAlreadyExistsException("User with email [" + updateUserRequest.email() + "] already exists");
+        }
+
         // update fields
-        user.setUsername(updateUserRequest.username());
         user.setEmail(updateUserRequest.email());
 
         // save

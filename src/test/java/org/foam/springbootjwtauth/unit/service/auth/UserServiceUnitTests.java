@@ -189,6 +189,52 @@ public class UserServiceUnitTests {
     }
 
     @Test
+    void testUpdateUser_UsernameChangeThrows() {
+        // Arrange
+        UpdateUserRequest updateUserRequest = new UpdateUserRequest(1L, "new-username", "new-email");
+
+        User user = new User();
+        user.setId(1L);
+        user.setUsername("username");
+        user.setEmail("old-email");
+
+        when(userRepository.findById(updateUserRequest.id())).thenReturn(java.util.Optional.of(user));
+
+        // Act & Assert
+        assertThrows(IllegalArgumentException.class, () -> userService.updateUser(updateUserRequest));
+
+        // Verify
+        verify(userRepository, times(1)).findById(updateUserRequest.id());
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void testUpdateUser_EmailAlreadyExistsThrows() {
+        // Arrange
+        UpdateUserRequest updateUserRequest = new UpdateUserRequest(1L, "username", "new-email");
+
+        User user = new User();
+        user.setId(1L);
+        user.setUsername("username");
+        user.setEmail("old-email");
+
+        User existingUser = new User();
+        existingUser.setId(2L);
+        existingUser.setEmail(updateUserRequest.email());
+
+        when(userRepository.findById(updateUserRequest.id())).thenReturn(java.util.Optional.of(user));
+        when(userRepository.getUserByEmail(updateUserRequest.email())).thenReturn(existingUser);
+
+        // Act & Assert
+        assertThrows(UserAlreadyExistsException.class, () -> userService.updateUser(updateUserRequest));
+
+        // Verify
+        verify(userRepository, times(1)).findById(updateUserRequest.id());
+        verify(userRepository, times(1)).getUserByEmail(updateUserRequest.email());
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
     void testDeleteUser() {
         // Arrange
         String username = "username";

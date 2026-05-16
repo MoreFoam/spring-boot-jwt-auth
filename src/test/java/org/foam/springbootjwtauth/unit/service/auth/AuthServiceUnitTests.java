@@ -77,7 +77,7 @@ public class AuthServiceUnitTests {
         Map<String, Object> map = new HashMap<>();
         map.put("id", 10L);
         map.put("userId", 1L);
-        map.put("deviceId", "device-123");
+        map.put("deviceId", "device-id");
         map.put(Claims.SUBJECT, "user");
         map.put(Claims.EXPIRATION, new Date(System.currentTimeMillis() + 60_000));
         Claims claims = new DefaultClaims(map);
@@ -90,7 +90,7 @@ public class AuthServiceUnitTests {
         // Assert
         assertEquals("access-token", result.getAccessToken());
         assertEquals("refresh-token", result.getRefreshToken());
-        assertEquals("device-123", result.getDeviceId());
+        assertEquals("device-id", result.getDeviceId());
 
         // Verify
         verify(authenticationManager, times(1)).authenticate(any(Authentication.class));
@@ -129,7 +129,7 @@ public class AuthServiceUnitTests {
         Map<String, Object> map = new HashMap<>();
         map.put("id", 10L);
         map.put("userId", 1L);
-        map.put("deviceId", "device-123");
+        map.put("deviceId", "device-id");
         map.put(Claims.SUBJECT, "user");
         map.put(Claims.EXPIRATION, new Date(System.currentTimeMillis() + 60_000));
 
@@ -198,7 +198,7 @@ public class AuthServiceUnitTests {
         Map<String, Object> map = new HashMap<>();
         map.put("id", 10L);
         map.put("userId", 1L);
-        map.put("deviceId", "device-123");
+        map.put("deviceId", "device-id");
         map.put(Claims.SUBJECT, "user");
         map.put(Claims.EXPIRATION, new Date(System.currentTimeMillis() - 60_000));
 
@@ -270,22 +270,50 @@ public class AuthServiceUnitTests {
         user.setId(1L);
         user.setUsername("user");
 
+        Map<String, Object> oldTokenMap = new HashMap<>();
+        oldTokenMap.put("id", 10L);
+        oldTokenMap.put("userId", 1L);
+        oldTokenMap.put("deviceId", "device-id");
+        oldTokenMap.put(Claims.SUBJECT, "user");
+        oldTokenMap.put(Claims.EXPIRATION, new Date(System.currentTimeMillis() + 60_000));
+        Claims oldTokenClaims = new DefaultClaims(oldTokenMap);
+
+        RefreshToken newToken = new RefreshToken();
+        newToken.setId(20L);
+        newToken.setUserId(1L);
+
+        Map<String, Object> newTokenMap = new HashMap<>();
+        newTokenMap.put("id", 20L);
+        newTokenMap.put("userId", 1L);
+        newTokenMap.put("deviceId", "device-id");
+        newTokenMap.put(Claims.SUBJECT, "user");
+        newTokenMap.put(Claims.EXPIRATION, new Date(System.currentTimeMillis() + 60_000));
+        Claims newTokenClaims = new DefaultClaims(newTokenMap);
+
         when(userRepository.findByUsername(refreshRequest.username())).thenReturn(Optional.of(user));
         when(jwtService.validateRefreshToken(refreshRequest.refreshToken(), user)).thenReturn(true);
+        when(jwtService.extractAllClaims("refresh-token")).thenReturn(oldTokenClaims);
+        when(refreshTokenRepository.save(any(RefreshToken.class))).thenReturn(newToken);
         when(jwtService.generateAccessToken(user)).thenReturn("access-token");
+        when(jwtService.generateRefreshToken(user, 20L, "device-id")).thenReturn("new-refresh-token");
+        when(jwtService.extractAllClaims("new-refresh-token")).thenReturn(newTokenClaims);
+        when(passwordEncoder.encode("new-refresh-token")).thenReturn("encoded-new-refresh-token");
 
         // Act
         RefreshResponse response = authService.refresh(refreshRequest);
 
         // Assert
         assertEquals("access-token", response.getAccessToken());
+        assertEquals("new-refresh-token", response.getRefreshToken());
 
         // Verify
         verify(userRepository, times(1)).findByUsername(refreshRequest.username());
         verify(jwtService, times(1)).validateRefreshToken(refreshRequest.refreshToken(), user);
         verify(jwtService, times(1)).generateAccessToken(user);
-        verify(jwtService, never()).invalidateRefreshToken(anyLong());
-        verify(jwtService, never()).extractAllClaims(anyString());
+        verify(jwtService, times(1)).generateRefreshToken(user, 20L, "device-id");
+        verify(jwtService, times(1)).invalidateRefreshToken(10L);
+        verify(refreshTokenRepository, times(2)).save(any(RefreshToken.class));
+        verify(passwordEncoder, times(1)).encode("new-refresh-token");
     }
 
     @Test

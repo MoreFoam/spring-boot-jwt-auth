@@ -38,7 +38,7 @@ A Spring Boot 4 service that demonstrates stateless JWT authentication. It inclu
 2) Login
 - POST /auth/login authenticates using username/password via Spring Security’s AuthenticationManager.
 - On success, an accessToken and refreshToken are returned along with a deviceId.
-- The refresh token claims contain: id (DB id of refresh token record), userId, deviceId.
+- The refresh token claims contain: tokenType, id (DB id of refresh token record), userId, deviceId.
 - The refresh token string is stored hashed in the database (only its hash is persisted).
 - Browser clients can use POST /auth/web/login instead. That endpoint returns the accessToken in the response body and stores the refreshToken in an HttpOnly cookie.
 
@@ -47,14 +47,15 @@ A Spring Boot 4 service that demonstrates stateless JWT authentication. It inclu
 - Method-level @PreAuthorize checks enforce object-level authorization in controllers.
 
 4) Refresh
-- POST /auth/refresh validates the refresh token + user/device bindings, and returns a new accessToken.
+- POST /auth/refresh validates the refresh token + user/device bindings, deletes the old refresh token, and returns a new accessToken and refreshToken.
+- POST /auth/web/refresh uses the same rotation flow, but returns only the accessToken in JSON and sets the new refreshToken as an HttpOnly cookie.
 
 5) Logout
 - POST /auth/logout invalidates the refresh token in storage (deletes the DB record). Access tokens are not persisted, so they naturally expire according to configuration.
 
 Token contents
-- Access token carries username as subject and claims: userId and roles (e.g. ["ROLE_USER"]).
-- Refresh token carries a unique id (its primary key), the userId, and a random deviceId to bind the token to a logical device/session.
+- Access token carries username as subject and claims: tokenType=access, userId, and roles (e.g. ["ROLE_USER"]).
+- Refresh token carries tokenType=refresh, a unique id (its primary key), the userId, and a random deviceId to bind the token to a logical device/session.
 
 
 ## <u>Quick start</u>
@@ -182,6 +183,8 @@ Additional critical warnings
   "password": "password"
 }
 ```
+`username` is treated as an immutable account identifier; this endpoint updates email only and rejects username changes.
+
 **Example:**
 ```bash
 curl -X POST http://localhost:8080/api/user/register \
@@ -279,7 +282,8 @@ curl -X POST http://localhost:8080/api/auth/refresh \
 **Response:**
 ```json
 {
-  "accessToken": "..."
+  "accessToken": "...",
+  "refreshToken": "..."
 }
 ```
 
@@ -334,6 +338,7 @@ Also sets a `refreshToken` HttpOnly cookie.
   "accessToken": "..."
 }
 ```
+Also replaces the `refreshToken` HttpOnly cookie.
 
 #### Web Logout
 **Endpoint:** `POST /auth/web/logout`  
@@ -378,8 +383,7 @@ Entities
 - Change JWT secret and rotate periodically; consider key identifiers (kid) if adding rotation.
 - Keep sensitive logging redaction in place and avoid adding logs that print raw Authorization headers, cookies, passwords, or token values.
 - Use Flyway/Liquibase instead of ddl-auto=update.
-- Consider a blacklist/whitelist or short access token TTL plus sliding refresh for better compromise windows.
-- Strengthen validation annotations where needed, such as @Email for email fields and @Size for usernames/passwords.
+- Consider a blacklist/whitelist for access tokens if immediate access-token revocation is required.
 - For browser clients, use the /auth/web/* endpoints so refresh tokens stay in HttpOnly cookies.
 - Configure precise CORS rules; avoid '*'.
 

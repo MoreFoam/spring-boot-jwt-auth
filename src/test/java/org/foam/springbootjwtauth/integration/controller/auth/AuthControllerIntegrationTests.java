@@ -224,15 +224,24 @@ public class AuthControllerIntegrationTests {
                     }
                 """, refreshToken, deviceId);
 
+        String newRefreshToken = null;
+
         try {
-            mockMvc.perform(post("/auth/refresh")
+            MvcResult refreshResult = mockMvc.perform(post("/auth/refresh")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(refreshRequestJson))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.accessToken").exists());
+                    .andExpect(jsonPath("$.accessToken").exists())
+                    .andExpect(jsonPath("$.refreshToken").exists())
+                    .andReturn();
+
+            JsonNode refreshJsonResponse = objectMapper.readTree(refreshResult.getResponse().getContentAsString());
+            newRefreshToken = refreshJsonResponse.get("refreshToken").asString();
+            Long oldRefreshTokenId = jwtService.extractAllClaims(refreshToken).get("id", Long.class);
+            assertTrue(refreshTokenRepository.findById(oldRefreshTokenId).isEmpty());
         } finally {
-            Long refreshTokenId = jwtService.extractAllClaims(refreshToken).get("id", Long.class);
-            refreshTokenRepository.findById(refreshTokenId).ifPresent(refreshTokenRepository::delete);
+            deleteRefreshTokenIfPresent(refreshToken);
+            deleteRefreshTokenIfPresent(newRefreshToken);
         }
 
     }
@@ -278,19 +287,33 @@ public class AuthControllerIntegrationTests {
                     }
                 """, webLoginResult.deviceId());
 
+        String newRefreshToken = null;
+
         try {
             CsrfResult csrf = getCsrfToken();
 
-            mockMvc.perform(post("/auth/web/refresh")
+            MvcResult refreshResult = mockMvc.perform(post("/auth/web/refresh")
                             .cookie(csrf.cookie())
                             .header("X-XSRF-TOKEN", csrf.token())
                             .cookie(webLoginResult.refreshTokenCookie())
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(refreshRequestJson))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.accessToken").exists());
+                    .andExpect(jsonPath("$.accessToken").exists())
+                    .andExpect(jsonPath("$.refreshToken").doesNotExist())
+                    .andReturn();
+
+            String setCookieHeader = refreshResult.getResponse().getHeader(HttpHeaders.SET_COOKIE);
+            assertNotNull(setCookieHeader);
+            assertTrue(setCookieHeader.contains("HttpOnly"));
+            newRefreshToken = extractCookieValue(setCookieHeader, "refreshToken");
+            assertFalse(newRefreshToken.isBlank());
+
+            Long oldRefreshTokenId = jwtService.extractAllClaims(webLoginResult.refreshToken()).get("id", Long.class);
+            assertTrue(refreshTokenRepository.findById(oldRefreshTokenId).isEmpty());
         } finally {
-            deleteRefreshToken(webLoginResult.refreshToken());
+            deleteRefreshTokenIfPresent(webLoginResult.refreshToken());
+            deleteRefreshTokenIfPresent(newRefreshToken);
         }
     }
 
@@ -537,6 +560,12 @@ public class AuthControllerIntegrationTests {
     private void deleteRefreshToken(String refreshToken) {
         Long refreshTokenId = jwtService.extractAllClaims(refreshToken).get("id", Long.class);
         refreshTokenRepository.findById(refreshTokenId).ifPresent(refreshTokenRepository::delete);
+    }
+
+    private void deleteRefreshTokenIfPresent(String refreshToken) {
+        if (refreshToken != null) {
+            deleteRefreshToken(refreshToken);
+        }
     }
 
     private record WebLoginResult(

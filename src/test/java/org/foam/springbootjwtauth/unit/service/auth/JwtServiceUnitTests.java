@@ -70,6 +70,7 @@ public class JwtServiceUnitTests {
         // Verify
         Claims claims = jwtService.extractAllClaims(token);
         assertEquals(user.getUsername(), claims.getSubject());
+        assertEquals("access", claims.get("tokenType"));
         assertEquals(user.getId(), Long.valueOf((int) claims.get("userId")));
         assertEquals(List.of("ROLE_USER"), claims.get("roles"));
     }
@@ -101,6 +102,7 @@ public class JwtServiceUnitTests {
         // Verify
         Claims claims = jwtService.extractAllClaims(token);
         assertEquals(mockUser.getUsername(), claims.getSubject());
+        assertEquals("refresh", claims.get("tokenType"));
         assertEquals(refreshTokenId, Long.valueOf((int) claims.get("id")));
         assertEquals(mockUser.getId(), Long.valueOf((int) claims.get("userId")));
         assertNotNull(claims.get("deviceId"));
@@ -133,6 +135,15 @@ public class JwtServiceUnitTests {
 
         // Act & Assert
         assertFalse(jwtService.validateAccessToken(tampered, user));
+    }
+
+    @Test
+    void testValidateAccessToken_RefreshToken_ReturnsFalse() {
+        // Arrange
+        String refreshToken = jwtService.generateRefreshToken(user, 1L);
+
+        // Act & Assert
+        assertFalse(jwtService.validateAccessToken(refreshToken, user));
     }
 
     @Test
@@ -175,6 +186,15 @@ public class JwtServiceUnitTests {
 
         // Act & Assert
         assertThrows(SignatureException.class, () -> jwtService.validateRefreshToken(tampered, user));
+    }
+
+    @Test
+    void testValidateRefreshToken_AccessToken_ReturnsFalse() {
+        // Arrange
+        String accessToken = jwtService.generateAccessToken(user);
+
+        // Act & Assert
+        assertFalse(jwtService.validateRefreshToken(accessToken, user));
     }
 
     @Test

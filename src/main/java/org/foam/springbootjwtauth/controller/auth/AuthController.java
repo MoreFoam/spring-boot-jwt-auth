@@ -15,6 +15,7 @@ import org.foam.springbootjwtauth.model.response.auth.CsrfResponse;
 import org.foam.springbootjwtauth.model.response.auth.LoginResponse;
 import org.foam.springbootjwtauth.model.response.auth.RefreshResponse;
 import org.foam.springbootjwtauth.model.response.auth.WebLoginResponse;
+import org.foam.springbootjwtauth.model.response.auth.WebRefreshResponse;
 import org.foam.springbootjwtauth.service.auth.AuthService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
@@ -83,7 +84,7 @@ public class AuthController {
 
     @LogMethod
     @PostMapping("/web/refresh")
-    public ResponseEntity<RefreshResponse> webRefresh(
+    public ResponseEntity<WebRefreshResponse> webRefresh(
             HttpServletRequest httpServletRequest,
             @Valid @RequestBody WebSessionRequest webSessionRequest) {
         String refreshToken = getRefreshTokenCookieValue(httpServletRequest);
@@ -91,8 +92,11 @@ public class AuthController {
                 refreshToken,
                 webSessionRequest.username(),
                 webSessionRequest.deviceId());
+        RefreshResponse refreshResponse = authService.refresh(refreshRequest);
 
-        return ResponseEntity.ok().body(authService.refresh(refreshRequest));
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, createRefreshCookie(refreshResponse.getRefreshToken()).toString())
+                .body(new WebRefreshResponse(refreshResponse.getAccessToken()));
     }
 
     @LogMethod

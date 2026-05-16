@@ -29,11 +29,11 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(RefreshTokenNotFoundException.class)
     public ResponseEntity<String> handleRefreshTokenNotFoundException(RefreshTokenNotFoundException ex) {
-        logger.warn("Refresh token not found: {}", ex.getMessage());
+        logger.warn("Refresh token not found.");
 
         return ResponseEntity
                 .status(HttpStatus.NOT_FOUND)
-                .body(ex.getMessage());
+                .body("Refresh token not found.");
     }
 
     @ExceptionHandler(UserAlreadyExistsException.class)
@@ -42,24 +42,24 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity
                 .status(HttpStatus.CONFLICT)
-                .body(ex.getMessage());
+                .body("User already exists.");
     }
 
     @ExceptionHandler({IllegalArgumentException.class, JwtException.class, MethodArgumentNotValidException.class})
     public ResponseEntity<String> handleBadRequestException(Exception ex) {
-        logger.warn("Bad request: {}", ex.getMessage());
+        logger.warn("Bad request: {}", ex.getClass().getSimpleName());
 
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
-                .body(ex.getMessage());
+                .body("Bad request.");
     }
 
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<String> handleAccessDeniedException(AccessDeniedException ex) {
-        logger.warn("Access denied: {}", ex.getMessage());
+        logger.warn("Access denied.");
 
         return ResponseEntity
                 .status(HttpStatus.FORBIDDEN)
-                .body(ex.getMessage());
+                .body("Access denied.");
     }
 }

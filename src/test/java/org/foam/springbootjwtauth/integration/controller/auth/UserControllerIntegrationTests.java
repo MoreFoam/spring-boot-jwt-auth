@@ -1,6 +1,7 @@
 package org.foam.springbootjwtauth.integration.controller.auth;
 
 import org.foam.springbootjwtauth.TestcontainersConfiguration;
+import org.foam.springbootjwtauth.model.database.auth.Authority;
 import org.foam.springbootjwtauth.model.database.auth.User;
 import org.foam.springbootjwtauth.model.request.auth.LoginRequest;
 import org.foam.springbootjwtauth.model.request.auth.RegisterUserRequest;
@@ -48,12 +49,14 @@ public class UserControllerIntegrationTests {
     @BeforeEach
     public void cleanupBeforeEach() {
         deleteUserIfExists("user");
+        deleteUserIfExists("admin");
         deleteUserIfExists("other-user");
     }
 
     @AfterEach
     public void cleanupAfterEach() {
         deleteUserIfExists("user");
+        deleteUserIfExists("admin");
         deleteUserIfExists("other-user");
     }
 
@@ -160,6 +163,26 @@ public class UserControllerIntegrationTests {
     }
 
     @Test
+    public void canGetAnotherUserAsAdmin() throws Exception {
+        registerUser();
+        registerAdmin();
+
+        LoginResponse loginResponse = authService.login(new LoginRequest("admin", "password"));
+
+        try {
+            Long userId = userRepository.getUserByUsername("user").getId();
+
+            mockMvc.perform(get("/user?userId=" + userId)
+                            .header("Authorization", "Bearer " + loginResponse.getAccessToken()))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.id").value(userId))
+                    .andExpect(jsonPath("$.username").value("user"));
+        } finally {
+            deleteRefreshToken(loginResponse);
+        }
+    }
+
+    @Test
     public void canUpdateAsUser() throws Exception {
         registerUser();
         // login as user
@@ -219,6 +242,35 @@ public class UserControllerIntegrationTests {
     }
 
     @Test
+    public void canUpdateAnotherUserAsAdmin() throws Exception {
+        registerUser();
+        registerAdmin();
+
+        LoginResponse loginResponse = authService.login(new LoginRequest("admin", "password"));
+
+        try {
+            Long userId = userRepository.getUserByUsername("user").getId();
+            String updateUserJson = String.format("""
+                        {
+                            "id":"%s",
+                            "username": "user",
+                            "email": "admin-updated@user.com"
+                        }
+                    """, userId);
+
+            mockMvc.perform(put("/user")
+                            .header("Authorization", "Bearer " + loginResponse.getAccessToken())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(updateUserJson))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.id").value(userId))
+                    .andExpect(jsonPath("$.email").value("admin-updated@user.com"));
+        } finally {
+            deleteRefreshToken(loginResponse);
+        }
+    }
+
+    @Test
     public void canDeleteAsUser() throws Exception {
         registerUser();
         // login as user
@@ -264,6 +316,18 @@ public class UserControllerIntegrationTests {
                 email,
                 "password")
         );
+    }
+
+    private void registerAdmin() {
+        registerUser("admin", "admin@user.com");
+
+        User admin = userRepository.getUserByUsername("admin");
+        Authority adminAuthority = new Authority();
+        adminAuthority.setUsername("admin");
+        adminAuthority.setAuthority("ROLE_ADMIN");
+        adminAuthority.setUser(admin);
+        admin.getAuthorities().add(adminAuthority);
+        userRepository.save(admin);
     }
 
     private void deleteRefreshToken(LoginResponse loginResponse) {
