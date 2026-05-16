@@ -35,8 +35,8 @@ public class GlobalExceptionHandler {
         logger.warn("Refresh token not found.");
 
         return ResponseEntity
-                .status(HttpStatus.NOT_FOUND)
-                .body("Refresh token not found.");
+                .status(HttpStatus.BAD_REQUEST)
+                .body("Invalid refresh token.");
     }
 
     @ExceptionHandler(UserAlreadyExistsException.class)

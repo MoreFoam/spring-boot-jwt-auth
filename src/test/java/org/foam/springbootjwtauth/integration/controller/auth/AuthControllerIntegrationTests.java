@@ -25,6 +25,7 @@ import tools.jackson.databind.ObjectMapper;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -244,6 +245,55 @@ public class AuthControllerIntegrationTests {
             deleteRefreshTokenIfPresent(newRefreshToken);
         }
 
+    }
+
+    @Test
+    public void cannotReuseRotatedRefreshToken() throws Exception {
+        String loginRequestJson = """
+                    {
+                        "username": "user",
+                        "password": "password"
+                    }
+                """;
+
+        MvcResult loginResult = mockMvc.perform(post("/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(loginRequestJson))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        JsonNode jsonResponse = objectMapper.readTree(loginResult.getResponse().getContentAsString());
+        String refreshToken = jsonResponse.get("refreshToken").asString();
+        String deviceId = jsonResponse.get("deviceId").asString();
+        String refreshRequestJson = String.format("""
+                    {
+                        "refreshToken": "%s",
+                        "username": "user",
+                        "deviceId":"%s"
+                    }
+                """, refreshToken, deviceId);
+
+        String newRefreshToken = null;
+
+        try {
+            MvcResult refreshResult = mockMvc.perform(post("/auth/refresh")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(refreshRequestJson))
+                    .andExpect(status().isOk())
+                    .andReturn();
+
+            JsonNode refreshJsonResponse = objectMapper.readTree(refreshResult.getResponse().getContentAsString());
+            newRefreshToken = refreshJsonResponse.get("refreshToken").asString();
+
+            mockMvc.perform(post("/auth/refresh")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(refreshRequestJson))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(content().string("Invalid refresh token."));
+        } finally {
+            deleteRefreshTokenIfPresent(refreshToken);
+            deleteRefreshTokenIfPresent(newRefreshToken);
+        }
     }
 
     @Test
