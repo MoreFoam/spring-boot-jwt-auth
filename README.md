@@ -1,6 +1,6 @@
 ## <u>Spring Boot JWT Auth</u>
 
-A focused, production-lean Spring Boot 3 service that demonstrates stateless JWT authentication with access and refresh tokens. It includes:
+A Spring Boot 4 service that demonstrates stateless JWT authentication. It includes:
 
 - Access tokens (short-lived) and refresh tokens (long-lived)
 - Refresh tokens stored hashed-at-rest with device identifiers
@@ -59,24 +59,54 @@ Token contents
 Prerequisites
 - Java 25+
 - Maven 3.9+
-- Postgres running locally
+- Docker
 
-Create a database
-- Database name: SpringBootJwtAuth
-- Example via psql:
-  CREATE DATABASE "SpringBootJwtAuth";
+### Option 1: Run everything in Docker
 
-Default connection (you can change these in application.properties):
-- URL: jdbc:postgresql://localhost:5432/SpringBootJwtAuth
-- Username: postgres
-- Password: postgres
+Use this when you want both the app and Postgres to run in containers.
 
-Run the app
-- mvn spring-boot:run
-- The API will be available at http://localhost:8080/api
+```bash
+docker compose up --build
+```
 
-Build
-- mvn clean package
+The API will be available at http://localhost:8080/api
+
+IntelliJ
+- Create a Docker Compose run configuration.
+- Compose file: compose.yaml
+- Services: app, postgres
+- Use that Docker Compose configuration as the selected run target before pressing Run.
+
+### Option 2: Run the app locally with Postgres in Docker
+
+Use this when you want to run or debug Spring Boot from IntelliJ while Postgres runs in Docker.
+
+In IntelliJ, run SpringBootJwtAuthApplication. Spring Boot will automatically start Postgres from compose.local.yaml.
+
+The app will connect to jdbc:postgresql://localhost:5432/spring_boot_jwt_auth.
+
+If automatic Docker Compose startup does not work, start Postgres manually before running the app:
+
+```bash
+docker compose -f compose.local.yaml up -d
+mvn spring-boot:run
+```
+
+The API will be available at http://localhost:8080/api
+
+### Run tests
+
+Docker must be running because integration tests use Testcontainers.
+
+```bash
+mvn test
+```
+
+### Build
+
+```bash
+mvn clean package
+```
 
 
 ## <u>Configuration and required changes (IMPORTANT)</u>
@@ -89,14 +119,15 @@ These defaults are in src/main/resources/application.properties. Review and chan
 
 - cors.allowed-origins
   - Default: http://localhost:3000
-  - Change to match your client origins. Multiple origins supported via comma-separated values if you enhance configuration handling.
+  - Change to match your client origins. Multiple origins are supported with comma-separated values, for example: http://localhost:3000,http://localhost:5173
+  - Use exact origins only; do not use '*' when credentials are allowed.
 
 - Database connection
   - Defaults:
-    - spring-boot-jwt-auth.database.url=jdbc:postgresql://localhost:5432/SpringBootJwtAuth
-    - spring-boot-jwt-auth.database.username=postgres
-    - spring-boot-jwt-auth.database.password=postgres
-  - Ensure Postgres is running and credentials match, or update these values.
+    - spring.datasource.url=jdbc:postgresql://localhost:5432/spring_boot_jwt_auth
+    - spring.datasource.username=postgres
+    - spring.datasource.password=postgres
+  - Ensure the Compose Postgres service is running and credentials match, or update these values.
 
 Additional critical warnings
 - Do not log credentials or tokens
@@ -106,7 +137,7 @@ Additional critical warnings
 - Context path
   - All endpoints are prefixed with /api per server.servlet.context-path=/api. Adjust your client accordingly.
 - Authorization rules
-  - SecurityConfig permits "/auth/**" and "/user/**" at the HTTP layer but relies on @PreAuthorize in UserController for object-level checks. For stricter setups, require authentication at the HTTP layer for "/user/**".
+  - SecurityConfig permits "/auth/**" and POST "/user/register", requires authentication for "/user/**", and relies on @PreAuthorize in UserController for object-level checks.
 - Token revocation scope
   - Access tokens are not blacklisted. If an access token is compromised, it remains valid until it expires. For higher assurance, implement a whitelist or blacklist for access tokens.
 - DDL auto-update
@@ -241,7 +272,7 @@ Key classes (package org.foam.springbootjwtauth)
 - service.auth.AuthService: Login, refresh, and logout flows.
 - service.auth.UserService: Registration, CRUD, and UserDetailsService implementation.
 - model.database.auth.User, Authority, RefreshToken: Entities for users, roles, and refresh tokens.
-- controller.AuthController, UserController: REST endpoints for auth and user operations.
+- controller.auth.AuthController, controller.auth.UserController: REST endpoints for auth and user operations.
 - repository.*: JPA repositories.
 
 Entities
@@ -251,7 +282,9 @@ Entities
 
 
 ## <u>Testing</u>
-- Integration tests are under src/test/java/... and expect a local Postgres according to application.properties.
+- Unit tests are under src/test/java/.../unit and use Mockito to isolate controllers and services.
+- Integration tests are under src/test/java/.../integration and use Spring, MockMvc, and Testcontainers with an isolated Postgres container.
+- Docker must be running before executing the integration tests.
 - Run tests: mvn test
 
 ## <u>Production hardening notes</u>
@@ -260,7 +293,7 @@ Entities
 - Remove any logging of Authorization headers and tokens.
 - Use Flyway/Liquibase instead of ddl-auto=update.
 - Consider a blacklist/whitelist or short access token TTL plus sliding refresh for better compromise windows.
-- Add validation annotations to request DTOs (@NotBlank, @Email, @Size) and @Valid on controller methods.
+- Strengthen validation annotations where needed, such as @Email for email fields and @Size for usernames/passwords.
 - If you need browser-based security, consider HttpOnly cookies for refresh tokens.
 - Configure precise CORS rules; avoid '*'.
 
@@ -268,16 +301,10 @@ Entities
 ## <u>Troubleshooting</u>
 - 401 Unauthorized on /auth/login: Check credentials and ensure the user exists.
 - 401/403 on /user endpoints: Ensure you send Authorization: Bearer <accessToken> and that the PreAuthorize rules align with your roles (ROLE_ADMIN vs hasRole('ADMIN')).
-- DB connection failures: Verify spring-boot-jwt-auth.database.* properties and that Postgres is reachable.
+- DB connection failures: Verify spring.datasource.* properties and that the Compose Postgres service is running.
 - JWT signature invalid: Your JWT secret key likely changed; restart app/clients with the same configured key.
 - Token expired: Use /auth/refresh with a valid refresh token to get a new access token.
 
 ## <u>License</u>
 This project is licensed under the MIT License. See the LICENSE file for details.
-
----
-
-If you plan to publish this repo publicly:
-- Remove real secrets and provide application-example.properties with placeholders.
-- Document environment variables in your README (this file) or a .env.example.
 

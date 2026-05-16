@@ -69,7 +69,7 @@ public class AuthControllerUnitTests {
     @Test
     void testLogout() {
         // Arrange
-        LogoutRequest logoutRequest = new LogoutRequest("user", "refresh-token", "device-id");
+        LogoutRequest logoutRequest = new LogoutRequest("refresh-token", "user", "device-id");
 
         // Act
         ResponseEntity<Void> response = authController.logout(logoutRequest);

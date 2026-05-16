@@ -1,6 +1,6 @@
 package org.foam.springbootjwtauth.integration.controller.auth;
 
-import org.foam.springbootjwtauth.model.database.auth.User;
+import org.foam.springbootjwtauth.TestcontainersConfiguration;
 import org.foam.springbootjwtauth.model.request.auth.RegisterUserRequest;
 import org.foam.springbootjwtauth.model.response.auth.LoginResponse;
 import org.foam.springbootjwtauth.repository.auth.RefreshTokenRepository;
@@ -8,11 +8,11 @@ import org.foam.springbootjwtauth.service.auth.JwtService;
 import org.foam.springbootjwtauth.service.auth.UserService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -25,6 +25,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @AutoConfigureMockMvc
+@Import(TestcontainersConfiguration.class)
 public class AuthControllerIntegrationTests {
 
     @Autowired
@@ -44,7 +45,7 @@ public class AuthControllerIntegrationTests {
 
     @BeforeEach
     public void setUp() {
-        User user = userService.registerUser(new RegisterUserRequest("user", "user@user.com", "password"));
+        userService.registerUser(new RegisterUserRequest("user", "user@user.com", "password"));
     }
 
     @AfterEach
@@ -53,7 +54,6 @@ public class AuthControllerIntegrationTests {
     }
 
     @Test
-    @Order(1)
     public void canLogin() throws Exception {
         String loginRequestJson = """
                     {
@@ -75,11 +75,11 @@ public class AuthControllerIntegrationTests {
         String responseBody = mvcResult.getResponse().getContentAsString();
         LoginResponse loginResponse = objectMapper.readValue(responseBody, LoginResponse.class);
 
-        refreshTokenRepository.deleteById(jwtService.extractAllClaims(loginResponse.getRefreshToken()).get("id", Long.class));
+        Long refreshTokenId = jwtService.extractAllClaims(loginResponse.getRefreshToken()).get("id", Long.class);
+        refreshTokenRepository.findById(refreshTokenId).ifPresent(refreshTokenRepository::delete);
     }
 
     @Test
-    @Order(2)
     public void canLogout() throws Exception {
         // log in
         String loginRequestJson = """
@@ -112,21 +112,20 @@ public class AuthControllerIntegrationTests {
                     }
                 """, refreshToken, deviceId);
 
+        Long refreshTokenId = jwtService.extractAllClaims(refreshToken).get("id", Long.class);
+
         try {
             mockMvc.perform(post("/auth/logout")
                             .header("Authorization", "Bearer " + accessToken)
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(logoutRequestJson))
                     .andExpect(status().isOk());
-        } catch (Exception e) {
-            // clean up
-            // if the logout request fails, the refresh token will still be in the database, so delete it
-            refreshTokenRepository.deleteById(jwtService.extractAllClaims(refreshToken).get("id", Long.class));
+        } finally {
+            refreshTokenRepository.findById(refreshTokenId).ifPresent(refreshTokenRepository::delete);
         }
     }
 
     @Test
-    @Order(3)
     public void canRefresh() throws Exception {
         // log in
         String loginRequestJson = """
@@ -166,7 +165,8 @@ public class AuthControllerIntegrationTests {
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.accessToken").exists());
         } finally {
-            refreshTokenRepository.deleteById(jwtService.extractAllClaims(refreshToken).get("id", Long.class));
+            Long refreshTokenId = jwtService.extractAllClaims(refreshToken).get("id", Long.class);
+            refreshTokenRepository.findById(refreshTokenId).ifPresent(refreshTokenRepository::delete);
         }
 
     }

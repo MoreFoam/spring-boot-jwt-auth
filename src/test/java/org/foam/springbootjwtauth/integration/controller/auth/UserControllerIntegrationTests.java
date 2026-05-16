@@ -1,5 +1,7 @@
 package org.foam.springbootjwtauth.integration.controller.auth;
 
+import org.foam.springbootjwtauth.TestcontainersConfiguration;
+import org.foam.springbootjwtauth.model.database.auth.User;
 import org.foam.springbootjwtauth.model.request.auth.LoginRequest;
 import org.foam.springbootjwtauth.model.request.auth.RegisterUserRequest;
 import org.foam.springbootjwtauth.model.response.auth.LoginResponse;
@@ -12,6 +14,7 @@ import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -21,6 +24,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @AutoConfigureMockMvc
+@Import(TestcontainersConfiguration.class)
 public class UserControllerIntegrationTests {
 
     @Autowired
@@ -41,7 +45,16 @@ public class UserControllerIntegrationTests {
     @Autowired
     private JwtService jwtService;
 
-    @Order(1)
+    @BeforeEach
+    public void cleanupBeforeEach() {
+        deleteUserIfExists("user");
+    }
+
+    @AfterEach
+    public void cleanupAfterEach() {
+        deleteUserIfExists("user");
+    }
+
     @Test
     public void canRegister() throws Exception {
         String registerRequestJson = """
@@ -58,39 +71,13 @@ public class UserControllerIntegrationTests {
                             .content(registerRequestJson))
                     .andExpect(status().is(201));
         } finally {
-            userService.deleteUser("user");
+            deleteUserIfExists("user");
         }
     }
 
-    @BeforeEach
-    public void setupForGetUpdateDelete(TestInfo testInfo) {
-        String testName = testInfo.getDisplayName();
-
-        if (testName.contains("canDelete")
-                || testName.contains("canUpdate")
-                || testName.contains("canGet")) {
-
-            userService.registerUser(new RegisterUserRequest(
-                    "user",
-                    "user@user.com",
-                    "password")
-            );
-        }
-    }
-
-    @AfterEach
-    public void cleanupForGetUpdate(TestInfo testInfo) {
-        String testName = testInfo.getDisplayName();
-
-        if (testName.contains("canUpdate") || testName.contains("canGet")) {
-
-            userService.deleteUser("user");
-        }
-    }
-
-    @Order(2)
     @Test
     public void canGetAsUser() throws Exception {
+        registerUser();
         // login as user
         LoginResponse loginResponse = authService.login(new LoginRequest("user", "password"));
 
@@ -107,13 +94,14 @@ public class UserControllerIntegrationTests {
                     .andExpect(jsonPath("$.email").value("user@user.com"));
         } finally {
             // clean up
-            refreshTokenRepository.deleteById(jwtService.extractAllClaims(loginResponse.getRefreshToken()).get("id", Long.class));
+            Long refreshTokenId = jwtService.extractAllClaims(loginResponse.getRefreshToken()).get("id", Long.class);
+            refreshTokenRepository.findById(refreshTokenId).ifPresent(refreshTokenRepository::delete);
         }
     }
 
-    @Order(3)
     @Test
     public void canUpdateAsUser() throws Exception {
+        registerUser();
         // login as user
         LoginResponse loginResponse = authService.login(new LoginRequest("user", "password"));
 
@@ -138,13 +126,14 @@ public class UserControllerIntegrationTests {
                     .andExpect(jsonPath("$.email").value("new-email@user.com"));
         } finally {
             // clean up
-            refreshTokenRepository.deleteById(jwtService.extractAllClaims(loginResponse.getRefreshToken()).get("id", Long.class));
+            Long refreshTokenId = jwtService.extractAllClaims(loginResponse.getRefreshToken()).get("id", Long.class);
+            refreshTokenRepository.findById(refreshTokenId).ifPresent(refreshTokenRepository::delete);
         }
     }
 
-    @Order(4)
     @Test
-    public void canDeleteAsUser() {
+    public void canDeleteAsUser() throws Exception {
+        registerUser();
         // login as user
         LoginResponse loginResponse = authService.login(new LoginRequest("user", "password"));
 
@@ -153,12 +142,27 @@ public class UserControllerIntegrationTests {
             mockMvc.perform(delete("/user?username=user")
                             .header("Authorization", "Bearer " + loginResponse.getAccessToken()))
                     .andExpect(status().isNoContent());
-        } catch (Exception e) {
-            userService.deleteUser("user");
         } finally {
             // clean up
-            refreshTokenRepository.deleteById(jwtService.extractAllClaims(loginResponse.getRefreshToken()).get("id", Long.class));
+            Long refreshTokenId = jwtService.extractAllClaims(loginResponse.getRefreshToken()).get("id", Long.class);
+            refreshTokenRepository.findById(refreshTokenId).ifPresent(refreshTokenRepository::delete);
+            deleteUserIfExists("user");
         }
 
+    }
+
+    private void registerUser() {
+        userService.registerUser(new RegisterUserRequest(
+                "user",
+                "user@user.com",
+                "password")
+        );
+    }
+
+    private void deleteUserIfExists(String username) {
+        User user = userRepository.getUserByUsername(username);
+        if (user != null) {
+            userService.deleteUser(username);
+        }
     }
 }

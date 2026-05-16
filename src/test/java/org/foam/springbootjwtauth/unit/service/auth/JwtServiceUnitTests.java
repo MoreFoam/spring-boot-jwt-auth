@@ -144,17 +144,17 @@ public class JwtServiceUnitTests {
         storedToken.setId(1L);
         storedToken.setUserId(1L);
         storedToken.setDeviceId(jwtService.extractAllClaims(refreshToken).get("deviceId").toString());
-        storedToken.setToken(refreshToken);
+        storedToken.setToken("encoded-refresh-token");
 
         when(refreshTokenRepository.findById(1L)).thenReturn(Optional.of(storedToken));
-        when(passwordEncoder.matches(storedToken.getToken(), refreshToken)).thenReturn(true);
+        when(passwordEncoder.matches(refreshToken, storedToken.getToken())).thenReturn(true);
 
         // Act & Assert
         assertTrue(jwtService.validateRefreshToken(refreshToken, user));
 
         // Verify
         verify(refreshTokenRepository).findById(1L);
-        verify(passwordEncoder).matches(storedToken.getToken(), refreshToken);
+        verify(passwordEncoder).matches(refreshToken, storedToken.getToken());
     }
 
     @Test
@@ -194,7 +194,7 @@ public class JwtServiceUnitTests {
         storedToken.setId(1L);
         storedToken.setUserId(user.getId());
         storedToken.setDeviceId((String) claims.get("deviceId"));
-        storedToken.setToken(refreshToken);
+        storedToken.setToken("encoded-refresh-token");
 
         when(refreshTokenRepository.findById(1L)).thenReturn(Optional.of(storedToken));
         when(passwordEncoder.matches(refreshToken, storedToken.getToken())).thenReturn(true);
