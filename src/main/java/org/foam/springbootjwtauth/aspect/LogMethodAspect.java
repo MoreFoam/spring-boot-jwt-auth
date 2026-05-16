@@ -1,5 +1,7 @@
 package org.foam.springbootjwtauth.aspect;
 
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.ServletResponse;
 import org.aspectj.lang.JoinPoint;
 import org.aspectj.lang.annotation.AfterReturning;
 import org.aspectj.lang.annotation.Aspect;
@@ -39,7 +41,7 @@ public class LogMethodAspect {
             logMessage.append(" with arguments: ");
 
             for (Object arg : args) {
-                logMessage.append(String.format("\n\tArgument value: %s", objectMapper.writeValueAsString(arg)));
+                logMessage.append(String.format("\n\tArgument value: %s", serializeForLog(arg)));
             }
         } else {
             logMessage.append(" with no arguments.");
@@ -59,7 +61,7 @@ public class LogMethodAspect {
                 .append("] executed successfully.");
 
         if (response != null) {
-            logMessage.append(" Response: \n\t").append(objectMapper.writeValueAsString(response));
+            logMessage.append(" Response: \n\t").append(serializeForLog(response));
         } else {
             logMessage.append(" Response: null");
         }
@@ -67,4 +69,19 @@ public class LogMethodAspect {
         logger.debug(logMessage.toString());
     }
 
+    private String serializeForLog(Object value) {
+        if (value == null) {
+            return "null";
+        }
+
+        if (value instanceof ServletRequest || value instanceof ServletResponse) {
+            return value.getClass().getSimpleName();
+        }
+
+        try {
+            return objectMapper.writeValueAsString(value);
+        } catch (RuntimeException e) {
+            return value.getClass().getSimpleName();
+        }
+    }
 }

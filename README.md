@@ -6,6 +6,7 @@ A Spring Boot 4 service that demonstrates stateless JWT authentication. It inclu
 - Refresh tokens stored hashed-at-rest with device identifiers
 - A JWT filter that authenticates requests via the Authorization header
 - Method-level authorization checks
+- Separate response-body and HttpOnly-cookie refresh token flows for native/API and browser clients
 - Integration tests showing register → login → refresh → logout → protected user actions
 - Unit tests for the controller and service layers
 
@@ -39,6 +40,7 @@ A Spring Boot 4 service that demonstrates stateless JWT authentication. It inclu
 - On success, an accessToken and refreshToken are returned along with a deviceId.
 - The refresh token claims contain: id (DB id of refresh token record), userId, deviceId.
 - The refresh token string is stored hashed in the database (only its hash is persisted).
+- Browser clients can use POST /auth/web/login instead. That endpoint returns the accessToken in the response body and stores the refreshToken in an HttpOnly cookie.
 
 3) Access protected resources
 - Send Authorization: Bearer <accessToken> on requests. The JwtAuthFilter validates the token and populates the SecurityContext if valid.
@@ -129,6 +131,15 @@ These defaults are in src/main/resources/application.properties. Review and chan
     - spring.datasource.password=postgres
   - Ensure the Compose Postgres service is running and credentials match, or update these values.
 
+- Browser refresh cookie
+  - Defaults:
+    - spring-boot-jwt-auth.security.refresh-cookie.name=refreshToken
+    - spring-boot-jwt-auth.security.refresh-cookie.path=/api/auth/web
+    - spring-boot-jwt-auth.security.refresh-cookie.secure=false
+    - spring-boot-jwt-auth.security.refresh-cookie.same-site=Lax
+    - spring-boot-jwt-auth.security.refresh-cookie.max-age-seconds=5184000
+  - Use secure=true when serving over HTTPS.
+
 Additional critical warnings
 - Do not log credentials or tokens
   - JwtAuthFilter.java and LogMethodAspect.java can log Authorization headers, tokens, passwords, and other sensitive data at the debug level. Consider removing the logging or refactoring these classes if you plan to work with sensitive production data.
@@ -145,7 +156,7 @@ Additional critical warnings
 - HTTPS
   - Use HTTPS in production to protect tokens in transit.
 - Browser clients
-  - If building a browser-based client, avoid exposing refresh tokens to JavaScript. Consider storing refresh tokens in HttpOnly cookies and adapting the refresh flow accordingly.
+  - Use the /auth/web/* endpoints so refresh tokens stay in HttpOnly cookies instead of being exposed to JavaScript.
 
 
 ## <u>API Reference (with curl examples)</u>
@@ -262,6 +273,56 @@ curl -X POST http://localhost:8080/api/auth/refresh \
 }
 ```
 
+### Browser Client Flow
+Browser endpoints keep the refresh token in an HttpOnly cookie instead of returning it in JSON.
+
+#### Web Login
+**Endpoint:** `POST /auth/web/login`  
+**Body:**
+```json
+{
+  "username": "user",
+  "password": "password"
+}
+```
+**Response body:**
+```json
+{
+  "accessToken": "...",
+  "deviceId": "..."
+}
+```
+Also sets a `refreshToken` HttpOnly cookie.
+
+#### Web Refresh
+**Endpoint:** `POST /auth/web/refresh`  
+**Cookie:** `refreshToken`  
+**Body:**
+```json
+{
+  "username": "user",
+  "deviceId": "..."
+}
+```
+**Response:**
+```json
+{
+  "accessToken": "..."
+}
+```
+
+#### Web Logout
+**Endpoint:** `POST /auth/web/logout`  
+**Cookie:** `refreshToken`  
+**Body:**
+```json
+{
+  "username": "user",
+  "deviceId": "..."
+}
+```
+Clears the refresh-token cookie.
+
 
 
 ## <u>Architecture overview</u>
@@ -294,7 +355,7 @@ Entities
 - Use Flyway/Liquibase instead of ddl-auto=update.
 - Consider a blacklist/whitelist or short access token TTL plus sliding refresh for better compromise windows.
 - Strengthen validation annotations where needed, such as @Email for email fields and @Size for usernames/passwords.
-- If you need browser-based security, consider HttpOnly cookies for refresh tokens.
+- For browser clients, use the /auth/web/* endpoints so refresh tokens stay in HttpOnly cookies.
 - Configure precise CORS rules; avoid '*'.
 
 
