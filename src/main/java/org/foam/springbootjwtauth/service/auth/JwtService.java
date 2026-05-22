@@ -70,9 +70,11 @@ public class JwtService {
             var claims = extractAllClaims(token);
 
             return isAccessToken(claims)
-                    && claims.getSubject().equals(user.getUsername())
+                    && user.getUsername().equals(claims.getSubject())
+                    && user.getId().equals(getLongClaim(claims, "userId"))
+                    && isUserAccountUsable(user)
                     && !isTokenExpired(claims);
-        } catch (JwtException e) { //
+        } catch (IllegalArgumentException | JwtException e) {
             return false;
         }
     }
@@ -93,7 +95,7 @@ public class JwtService {
         RefreshToken refreshToken = refreshTokenOptional.get();
 
         return !isTokenExpired(claims)
-                && claims.getSubject().equals(user.getUsername())
+                && user.getUsername().equals(claims.getSubject())
                 && refreshToken.getUserId().equals(user.getId())
                 && refreshToken.getDeviceId().equals(claims.get("deviceId"))
                 && passwordEncoder.matches(token, refreshToken.getToken());
@@ -112,7 +114,7 @@ public class JwtService {
 
         RefreshToken refreshToken = refreshTokenOptional.get();
 
-        boolean subjectMatches = claims.getSubject().equals(user.getUsername());
+        boolean subjectMatches = user.getUsername().equals(claims.getSubject());
         boolean userIdMatches = refreshToken.getUserId().equals(user.getId());
         boolean deviceIdMatches = refreshToken.getDeviceId().equals(claims.get("deviceId"));
         boolean tokenMatches = passwordEncoder.matches(token, refreshToken.getToken());
@@ -159,6 +161,27 @@ public class JwtService {
 
     private boolean isRefreshToken(Claims claims) {
         return REFRESH_TOKEN_TYPE.equals(claims.get(TOKEN_TYPE_CLAIM, String.class));
+    }
+
+    private Long getLongClaim(Claims claims, String claimName) {
+        Object claimValue = claims.get(claimName);
+
+        if (claimValue instanceof Number number) {
+            return number.longValue();
+        }
+
+        if (claimValue instanceof String stringValue) {
+            return Long.valueOf(stringValue);
+        }
+
+        throw new IllegalArgumentException("Missing or invalid claim: " + claimName);
+    }
+
+    private boolean isUserAccountUsable(User user) {
+        return user.isEnabled()
+                && user.isAccountNonExpired()
+                && user.isAccountNonLocked()
+                && user.isCredentialsNonExpired();
     }
 
     public Claims extractAllClaims(String token) throws JwtException {

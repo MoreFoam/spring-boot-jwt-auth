@@ -54,6 +54,10 @@ public class JwtServiceUnitTests {
         user = new User();
         user.setId(1L);
         user.setUsername("testuser");
+        user.setEnabled(true);
+        user.setAccountNonExpired(true);
+        user.setAccountNonLocked(true);
+        user.setCredentialsNonExpired(true);
 
         Authority authority = new Authority();
         authority.setAuthority("ROLE_USER");
@@ -120,6 +124,56 @@ public class JwtServiceUnitTests {
 
         // Act & Assert
         assertTrue(jwtService.validateAccessToken(token, user));
+    }
+
+    @Test
+    void testValidateAccessToken_DifferentUserId_ReturnsFalse() {
+        // Arrange
+        String token = jwtService.generateAccessToken(user);
+        User recreatedUser = createUsableUser(2L, user.getUsername());
+
+        // Act & Assert
+        assertFalse(jwtService.validateAccessToken(token, recreatedUser));
+    }
+
+    @Test
+    void testValidateAccessToken_DisabledUser_ReturnsFalse() {
+        // Arrange
+        String token = jwtService.generateAccessToken(user);
+        user.setEnabled(false);
+
+        // Act & Assert
+        assertFalse(jwtService.validateAccessToken(token, user));
+    }
+
+    @Test
+    void testValidateAccessToken_LockedUser_ReturnsFalse() {
+        // Arrange
+        String token = jwtService.generateAccessToken(user);
+        user.setAccountNonLocked(false);
+
+        // Act & Assert
+        assertFalse(jwtService.validateAccessToken(token, user));
+    }
+
+    @Test
+    void testValidateAccessToken_ExpiredAccount_ReturnsFalse() {
+        // Arrange
+        String token = jwtService.generateAccessToken(user);
+        user.setAccountNonExpired(false);
+
+        // Act & Assert
+        assertFalse(jwtService.validateAccessToken(token, user));
+    }
+
+    @Test
+    void testValidateAccessToken_ExpiredCredentials_ReturnsFalse() {
+        // Arrange
+        String token = jwtService.generateAccessToken(user);
+        user.setCredentialsNonExpired(false);
+
+        // Act & Assert
+        assertFalse(jwtService.validateAccessToken(token, user));
     }
 
     @Test
@@ -250,5 +304,22 @@ public class JwtServiceUnitTests {
         when(refreshTokenRepository.findById(1L)).thenReturn(Optional.empty());
 
         assertThrows(NoSuchElementException.class, () -> jwtService.invalidateRefreshToken(1L));
+    }
+
+    private User createUsableUser(Long id, String username) {
+        User usableUser = new User();
+        usableUser.setId(id);
+        usableUser.setUsername(username);
+        usableUser.setEnabled(true);
+        usableUser.setAccountNonExpired(true);
+        usableUser.setAccountNonLocked(true);
+        usableUser.setCredentialsNonExpired(true);
+
+        Authority authority = new Authority();
+        authority.setAuthority("ROLE_USER");
+        authority.setUser(usableUser);
+        usableUser.setAuthorities(List.of(authority));
+
+        return usableUser;
     }
 }
