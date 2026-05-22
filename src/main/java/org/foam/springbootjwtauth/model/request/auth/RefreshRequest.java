@@ -6,4 +6,8 @@ import jakarta.validation.constraints.Size;
 public record RefreshRequest(@NotBlank String refreshToken,
                              @NotBlank @Size(min = 3, max = 64) String username,
                              @NotBlank @Size(max = 64) String deviceId) {
+    @Override
+    public String toString() {
+        return "RefreshRequest[refreshToken=<redacted>, username=" + username + ", deviceId=" + deviceId + "]";
+    }
 }
