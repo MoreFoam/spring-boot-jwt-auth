@@ -81,7 +81,7 @@ public class AuthServiceUnitTests {
 
         RefreshToken savedToken = new RefreshToken();
         savedToken.setId(10L);
-        savedToken.setUserId(1L);
+        savedToken.setUser(mockUser);
         when(refreshTokenRepository.save(any(RefreshToken.class))).thenReturn(savedToken);
         when(jwtService.generateAccessToken(mockUser)).thenReturn("access-token");
         when(jwtService.generateRefreshToken(mockUser, 10L)).thenReturn("refresh-token");
@@ -220,7 +220,7 @@ public class AuthServiceUnitTests {
 
         RefreshToken savedToken = new RefreshToken();
         savedToken.setId(10L);
-        savedToken.setUserId(1L);
+        savedToken.setUser(mockUser);
         when(refreshTokenRepository.save(any(RefreshToken.class))).thenReturn(savedToken);
         when(jwtService.generateAccessToken(mockUser)).thenReturn("access-token");
         when(jwtService.generateRefreshToken(mockUser, 10L)).thenReturn("refresh-token");
@@ -402,7 +402,7 @@ public class AuthServiceUnitTests {
 
         RefreshToken newToken = new RefreshToken();
         newToken.setId(20L);
-        newToken.setUserId(1L);
+        newToken.setUser(user);
 
         Map<String, Object> newTokenMap = new HashMap<>();
         newTokenMap.put("id", 20L);

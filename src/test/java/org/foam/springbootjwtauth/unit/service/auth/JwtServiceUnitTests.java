@@ -212,7 +212,7 @@ public class JwtServiceUnitTests {
 
         RefreshToken storedToken = new RefreshToken();
         storedToken.setId(1L);
-        storedToken.setUserId(1L);
+        storedToken.setUser(user);
         storedToken.setDeviceId(jwtService.extractAllClaims(refreshToken).get("deviceId").toString());
         storedToken.setToken("encoded-refresh-token");
 
@@ -271,7 +271,7 @@ public class JwtServiceUnitTests {
 
         RefreshToken storedToken = new RefreshToken();
         storedToken.setId(1L);
-        storedToken.setUserId(user.getId());
+        storedToken.setUser(user);
         storedToken.setDeviceId((String) claims.get("deviceId"));
         storedToken.setToken("encoded-refresh-token");
 

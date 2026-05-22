@@ -126,7 +126,7 @@ public class UserService implements UserDetailsService {
         }
 
         user.setUsername(updateUsernameRequest.username());
-        refreshTokenRepository.deleteByUserId(user.getId());
+        refreshTokenRepository.deleteByUser_Id(user.getId());
 
         return userRepository.save(user);
     }
@@ -139,7 +139,7 @@ public class UserService implements UserDetailsService {
         validateCurrentPassword(updatePasswordRequest.currentPassword(), user);
 
         user.setPassword(passwordEncoder.encode(updatePasswordRequest.newPassword()));
-        refreshTokenRepository.deleteByUserId(user.getId());
+        refreshTokenRepository.deleteByUser_Id(user.getId());
         userRepository.save(user);
     }
 
@@ -151,7 +151,7 @@ public class UserService implements UserDetailsService {
             throw new UsernameNotFoundException(username);
         }
 
-        refreshTokenRepository.deleteByUserId(user.getId());
+        refreshTokenRepository.deleteByUser_Id(user.getId());
         userRepository.delete(user);
     }
 

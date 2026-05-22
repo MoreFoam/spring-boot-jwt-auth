@@ -275,7 +275,7 @@ public class UserServiceUnitTests {
         verify(userRepository, times(1)).findById(updateUsernameRequest.id());
         verify(passwordEncoder, times(1)).matches(updateUsernameRequest.currentPassword(), "encoded-password");
         verify(userRepository, times(1)).getUserByUsername(updateUsernameRequest.username());
-        verify(refreshTokenRepository, times(1)).deleteByUserId(1L);
+        verify(refreshTokenRepository, times(1)).deleteByUser_Id(1L);
         verify(userRepository, times(1)).save(user);
     }
 
@@ -297,7 +297,7 @@ public class UserServiceUnitTests {
 
         // Verify
         verify(userRepository, times(1)).findById(updateUsernameRequest.id());
-        verify(refreshTokenRepository, never()).deleteByUserId(anyLong());
+        verify(refreshTokenRepository, never()).deleteByUser_Id(anyLong());
         verify(userRepository, never()).save(any());
     }
 
@@ -325,7 +325,7 @@ public class UserServiceUnitTests {
         // Verify
         verify(userRepository, times(1)).findById(updateUsernameRequest.id());
         verify(userRepository, times(1)).getUserByUsername(updateUsernameRequest.username());
-        verify(refreshTokenRepository, never()).deleteByUserId(anyLong());
+        verify(refreshTokenRepository, never()).deleteByUser_Id(anyLong());
         verify(userRepository, never()).save(any());
     }
 
@@ -353,7 +353,7 @@ public class UserServiceUnitTests {
         verify(userRepository, times(1)).findById(updatePasswordRequest.id());
         verify(passwordEncoder, times(1)).matches(updatePasswordRequest.currentPassword(), "encoded-password");
         verify(passwordEncoder, times(1)).encode(updatePasswordRequest.newPassword());
-        verify(refreshTokenRepository, times(1)).deleteByUserId(1L);
+        verify(refreshTokenRepository, times(1)).deleteByUser_Id(1L);
         verify(userRepository, times(1)).save(user);
     }
 
@@ -376,7 +376,7 @@ public class UserServiceUnitTests {
         // Verify
         verify(userRepository, times(1)).findById(updatePasswordRequest.id());
         verify(passwordEncoder, never()).encode(anyString());
-        verify(refreshTokenRepository, never()).deleteByUserId(anyLong());
+        verify(refreshTokenRepository, never()).deleteByUser_Id(anyLong());
         verify(userRepository, never()).save(any());
     }
 
@@ -396,7 +396,7 @@ public class UserServiceUnitTests {
 
         // Verify
         verify(userRepository, times(1)).getUserByUsername(username);
-        verify(refreshTokenRepository, times(1)).deleteByUserId(1L);
+        verify(refreshTokenRepository, times(1)).deleteByUser_Id(1L);
         verify(userRepository, times(1)).delete(user);
     }
 
@@ -412,7 +412,7 @@ public class UserServiceUnitTests {
 
         // Verify
         verify(userRepository, times(1)).getUserByUsername(username);
-        verify(refreshTokenRepository, never()).deleteByUserId(anyLong());
+        verify(refreshTokenRepository, never()).deleteByUser_Id(anyLong());
         verify(userRepository, never()).delete(any());
     }
 

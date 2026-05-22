@@ -137,7 +137,7 @@ public class AuthService {
 
     private LoginResponse createSession(User user, String deviceId) {
         RefreshToken refreshTokenObj = new RefreshToken();
-        refreshTokenObj.setUserId(user.getId());
+        refreshTokenObj.setUser(user);
         refreshTokenObj = refreshTokenRepository.save(refreshTokenObj);
 
         String accessToken = jwtService.generateAccessToken(user);

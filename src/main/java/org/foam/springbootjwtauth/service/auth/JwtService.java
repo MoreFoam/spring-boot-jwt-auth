@@ -96,7 +96,7 @@ public class JwtService {
 
         return !isTokenExpired(claims)
                 && user.getUsername().equals(claims.getSubject())
-                && refreshToken.getUserId().equals(user.getId())
+                && refreshToken.getUser().getId().equals(user.getId())
                 && refreshToken.getDeviceId().equals(claims.get("deviceId"))
                 && passwordEncoder.matches(token, refreshToken.getToken());
     }
@@ -115,7 +115,7 @@ public class JwtService {
         RefreshToken refreshToken = refreshTokenOptional.get();
 
         boolean subjectMatches = user.getUsername().equals(claims.getSubject());
-        boolean userIdMatches = refreshToken.getUserId().equals(user.getId());
+        boolean userIdMatches = refreshToken.getUser().getId().equals(user.getId());
         boolean deviceIdMatches = refreshToken.getDeviceId().equals(claims.get("deviceId"));
         boolean tokenMatches = passwordEncoder.matches(token, refreshToken.getToken());
 
