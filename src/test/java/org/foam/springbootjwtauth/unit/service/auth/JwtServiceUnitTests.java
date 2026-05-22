@@ -17,7 +17,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
@@ -28,6 +30,9 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 public class JwtServiceUnitTests {
+
+    private static final String TEST_SECRET_KEY = Base64.getEncoder()
+            .encodeToString("jwt-service-unit-test-key-32byte".getBytes(StandardCharsets.UTF_8));
 
     @Mock
     RefreshTokenRepository refreshTokenRepository;
@@ -42,7 +47,7 @@ public class JwtServiceUnitTests {
 
     @BeforeEach
     void setup() {
-        ReflectionTestUtils.setField(jwtService, "secretKey", "9E2zEACh8ywhVN0JNuOqN7irOwpMenVqpNBeGiCDyf8=");
+        ReflectionTestUtils.setField(jwtService, "secretKey", TEST_SECRET_KEY);
         ReflectionTestUtils.setField(jwtService, "expiration", 1000L * 60 * 30); // 30 minutes
         ReflectionTestUtils.setField(jwtService, "refreshExpiration", 1000L * 60 * 60 * 24 * 60); // 60 days
 

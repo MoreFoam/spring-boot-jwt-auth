@@ -2,11 +2,13 @@ services:
   app:
     build:
       context: .
+    env_file:
+      - .env
     environment:
       SPRING_DOCKER_COMPOSE_ENABLED: false
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/spring_boot_jwt_auth
-      SPRING_DATASOURCE_USERNAME: postgres
-      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-spring_boot_jwt_auth}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     ports:
       - "8080:8080"
     depends_on:
@@ -16,15 +18,15 @@ services:
   postgres:
     image: postgres:17
     environment:
-      POSTGRES_DB: spring_boot_jwt_auth
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ${POSTGRES_DB:-spring_boot_jwt_auth}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     ports:
       - "5432:5432"
     volumes:
       - postgres_17_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d spring_boot_jwt_auth"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-spring_boot_jwt_auth}"]
       interval: 10s
       timeout: 5s
       retries: 5

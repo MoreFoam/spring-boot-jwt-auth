@@ -68,6 +68,18 @@ Prerequisites
 
 Use this when you want both the app and Postgres to run in containers.
 
+Create a local `.env` file first:
+
+```bash
+cp .env.example .env
+```
+
+Then replace `JWT_SECRET_KEY` in `.env` with a generated value:
+
+```bash
+openssl rand -base64 32
+```
+
 ```bash
 docker compose up --build
 ```
@@ -83,6 +95,8 @@ IntelliJ
 ### Option 2: Run the app locally with Postgres in Docker
 
 Use this when you want to run or debug Spring Boot from IntelliJ while Postgres runs in Docker.
+
+Create a local `.env` file as shown above. Spring Boot imports it through `spring.config.import=optional:file:.env[.properties]`.
 
 In IntelliJ, run SpringBootJwtAuthApplication. Spring Boot will automatically start Postgres from compose.local.yaml.
 
@@ -133,39 +147,41 @@ mvn clean package
 
 
 ## <u>Configuration and required changes (IMPORTANT)</u>
-These defaults are in src/main/resources/application.properties. Review and change them before using this beyond local development.
+Runtime configuration is read from environment variables. Use `.env.example` as the template for local Docker Compose runs, and do not commit a real `.env` file.
 
 - spring-boot-jwt-auth.security.jwt.secret-key
-  - MUST change for any non-local usage. This is your HS256 signing key. Do not commit real secrets to VCS.
+  - Required through `JWT_SECRET_KEY`. This is your HS256 signing key. Do not commit real secrets to VCS.
   - Generate a strong key (32+ random bytes base64):
     openssl rand -base64 32
 
 - cors.allowed-origins
-  - Default: http://localhost:3000
+  - Environment variable: `CORS_ALLOWED_ORIGINS`
+  - Default fallback: http://localhost:3000
   - Change to match your client origins. Multiple origins are supported with comma-separated values, for example: http://localhost:3000,http://localhost:5173
   - Use exact origins only; do not use '*' when credentials are allowed.
 
 - Database connection
-  - Defaults:
-    - spring.datasource.url=jdbc:postgresql://localhost:5432/spring_boot_jwt_auth
-    - spring.datasource.username=postgres
-    - spring.datasource.password=postgres
+  - Environment variables:
+    - `DB_URL`
+    - `DB_USERNAME`
+    - `DB_PASSWORD`
+  - Local fallback values point at `jdbc:postgresql://localhost:5432/spring_boot_jwt_auth` with `postgres` credentials.
   - Ensure the Compose Postgres service is running and credentials match, or update these values.
 
 - Browser refresh cookie
-  - Defaults:
-    - spring-boot-jwt-auth.security.refresh-cookie.name=refreshToken
-    - spring-boot-jwt-auth.security.refresh-cookie.path=/api/auth/web
-    - spring-boot-jwt-auth.security.refresh-cookie.secure=false
-    - spring-boot-jwt-auth.security.refresh-cookie.same-site=Lax
-    - spring-boot-jwt-auth.security.refresh-cookie.max-age-seconds=5184000
+  - Environment variables:
+    - `REFRESH_COOKIE_NAME`
+    - `REFRESH_COOKIE_PATH`
+    - `REFRESH_COOKIE_SECURE`
+    - `REFRESH_COOKIE_SAME_SITE`
+    - `REFRESH_COOKIE_MAX_AGE_SECONDS`
   - Use secure=true when serving over HTTPS.
 
 - Browser CSRF cookie
-  - Defaults:
-    - spring-boot-jwt-auth.security.csrf-cookie.path=/
-    - spring-boot-jwt-auth.security.csrf-cookie.secure=false
-    - spring-boot-jwt-auth.security.csrf-cookie.same-site=Lax
+  - Environment variables:
+    - `CSRF_COOKIE_PATH`
+    - `CSRF_COOKIE_SECURE`
+    - `CSRF_COOKIE_SAME_SITE`
   - The CSRF cookie is intentionally readable by JavaScript so browser clients can send its value in the X-XSRF-TOKEN header.
   - Use secure=true when serving over HTTPS. If the browser client and API are cross-site, use SameSite=None together with secure=true for both browser cookies.
 
