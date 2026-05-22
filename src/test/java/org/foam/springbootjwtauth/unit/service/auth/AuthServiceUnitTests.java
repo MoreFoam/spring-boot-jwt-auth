@@ -5,6 +5,7 @@ import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Header;
 import io.jsonwebtoken.impl.DefaultClaims;
 import io.jsonwebtoken.impl.DefaultHeader;
+import org.foam.springbootjwtauth.config.LoginLockoutProperties;
 import org.foam.springbootjwtauth.model.database.auth.RefreshToken;
 import org.foam.springbootjwtauth.model.database.auth.User;
 import org.foam.springbootjwtauth.model.request.auth.LoginRequest;
@@ -16,6 +17,7 @@ import org.foam.springbootjwtauth.repository.auth.RefreshTokenRepository;
 import org.foam.springbootjwtauth.repository.auth.UserRepository;
 import org.foam.springbootjwtauth.service.auth.AuthService;
 import org.foam.springbootjwtauth.service.auth.JwtService;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -27,10 +29,11 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.*;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -51,8 +54,17 @@ public class AuthServiceUnitTests {
     @Mock
     private PasswordEncoder passwordEncoder;
 
+    @Mock
+    private LoginLockoutProperties loginLockoutProperties;
+
     @InjectMocks
     private AuthService authService;
+
+    @BeforeEach
+    void setUp() {
+        lenient().when(loginLockoutProperties.getMaxFailedAttempts()).thenReturn(5);
+        lenient().when(loginLockoutProperties.getLockDuration()).thenReturn(Duration.ofMinutes(15));
+    }
 
     @Test
     void testLogin() {
@@ -118,6 +130,115 @@ public class AuthServiceUnitTests {
     }
 
     @Test
+    void testLoginAuthenticationExceptionIncrementsFailedAttempts() {
+        // Arrange
+        LoginRequest loginRequest = new LoginRequest("user", "wrong-password");
+
+        User user = new User();
+        user.setId(1L);
+        user.setUsername("user");
+        user.setAccountNonLocked(true);
+        user.setFailedLoginAttempts(1);
+
+        when(authenticationManager.authenticate(any(Authentication.class)))
+                .thenThrow(new BadCredentialsException("Bad credentials"));
+        when(userRepository.findByUsername("user")).thenReturn(Optional.of(user));
+
+        // Act & Assert
+        assertThrows(BadCredentialsException.class, () -> authService.login(loginRequest));
+
+        assertEquals(2, user.getFailedLoginAttempts());
+        assertTrue(user.isAccountNonLocked());
+        verify(userRepository, times(1)).save(user);
+    }
+
+    @Test
+    void testLoginAuthenticationExceptionTemporarilyLocksUserAtThreshold() {
+        // Arrange
+        LoginRequest loginRequest = new LoginRequest("user", "wrong-password");
+        Instant beforeAttempt = Instant.now();
+
+        User user = new User();
+        user.setId(1L);
+        user.setUsername("user");
+        user.setAccountNonLocked(true);
+        user.setFailedLoginAttempts(4);
+
+        when(authenticationManager.authenticate(any(Authentication.class)))
+                .thenThrow(new BadCredentialsException("Bad credentials"));
+        when(userRepository.findByUsername("user")).thenReturn(Optional.of(user));
+
+        // Act & Assert
+        assertThrows(BadCredentialsException.class, () -> authService.login(loginRequest));
+
+        assertEquals(5, user.getFailedLoginAttempts());
+        assertFalse(user.isAccountNonLocked());
+        assertNotNull(user.getLockedUntil());
+        assertTrue(user.getLockedUntil().isAfter(beforeAttempt));
+        verify(userRepository, times(1)).save(user);
+    }
+
+    @Test
+    void testLoginAuthenticationExceptionResetsExpiredTemporaryLockBeforeCountingFailure() {
+        // Arrange
+        LoginRequest loginRequest = new LoginRequest("user", "wrong-password");
+
+        User user = new User();
+        user.setId(1L);
+        user.setUsername("user");
+        user.setAccountNonLocked(true);
+        user.setFailedLoginAttempts(5);
+        user.setLockedUntil(Instant.now().minusSeconds(60));
+
+        when(authenticationManager.authenticate(any(Authentication.class)))
+                .thenThrow(new BadCredentialsException("Bad credentials"));
+        when(userRepository.findByUsername("user")).thenReturn(Optional.of(user));
+
+        // Act & Assert
+        assertThrows(BadCredentialsException.class, () -> authService.login(loginRequest));
+
+        assertEquals(1, user.getFailedLoginAttempts());
+        assertNull(user.getLockedUntil());
+        assertTrue(user.isAccountNonLocked());
+        verify(userRepository, times(1)).save(user);
+    }
+
+    @Test
+    void testLoginResetsFailedAttempts() {
+        // Arrange
+        LoginRequest loginRequest = new LoginRequest("user", "password");
+
+        User mockUser = new User();
+        mockUser.setId(1L);
+        mockUser.setUsername("user");
+        mockUser.setFailedLoginAttempts(2);
+        mockUser.setLockedUntil(Instant.now().plusSeconds(60));
+
+        Authentication authenticationResponse = new UsernamePasswordAuthenticationToken(mockUser, loginRequest.password());
+        when(authenticationManager.authenticate(any(Authentication.class)))
+                .thenReturn(authenticationResponse);
+
+        RefreshToken savedToken = new RefreshToken();
+        savedToken.setId(10L);
+        savedToken.setUserId(1L);
+        when(refreshTokenRepository.save(any(RefreshToken.class))).thenReturn(savedToken);
+        when(jwtService.generateAccessToken(mockUser)).thenReturn("access-token");
+        when(jwtService.generateRefreshToken(mockUser, 10L)).thenReturn("refresh-token");
+
+        Claims claims = new DefaultClaims(Map.of("deviceId", "device-id"));
+        when(jwtService.extractAllClaims("refresh-token")).thenReturn(claims);
+        when(passwordEncoder.encode("refresh-token")).thenReturn("encoded-refresh-token");
+
+        // Act
+        authService.login(loginRequest);
+
+        // Assert
+        assertEquals(0, mockUser.getFailedLoginAttempts());
+        assertNull(mockUser.getLockedUntil());
+        verify(userRepository, times(1)).save(mockUser);
+    }
+
+    @Test
     void testLogout() {
         // Arrange
         LogoutRequest logoutRequest = new LogoutRequest("refresh-token", "user", "device-id");
@@ -157,7 +278,8 @@ public class AuthServiceUnitTests {
         when(userRepository.findByUsername(logoutRequest.username())).thenReturn(Optional.empty());
 
         // Act & Assert
-        assertThrows(NoSuchElementException.class, () -> authService.logout(logoutRequest));
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> authService.logout(logoutRequest));
+        assertEquals("Invalid refresh token", exception.getMessage());
 
         // Verify
         verify(userRepository, times(1)).findByUsername("unknown");
@@ -321,11 +443,11 @@ public class AuthServiceUnitTests {
         // Arrange
         RefreshRequest refreshRequest = new RefreshRequest("invalid-refresh-token", "user", "device-id");
 
-        when(userRepository.findByUsername(refreshRequest.username())).thenThrow(new NoSuchElementException("User not found"));
+        when(userRepository.findByUsername(refreshRequest.username())).thenReturn(Optional.empty());
 
         // Act & Assert
-        NoSuchElementException exception = assertThrows(NoSuchElementException.class, () -> authService.refresh(refreshRequest));
-        assertEquals("User not found", exception.getMessage());
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> authService.refresh(refreshRequest));
+        assertEquals("Invalid refresh token", exception.getMessage());
 
         // Verify
         verify(userRepository, times(1)).findByUsername(refreshRequest.username());

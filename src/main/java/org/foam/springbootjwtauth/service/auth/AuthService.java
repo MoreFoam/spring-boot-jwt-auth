@@ -2,7 +2,7 @@ package org.foam.springbootjwtauth.service.auth;
 
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Claims;
-import jakarta.transaction.Transactional;
+import org.foam.springbootjwtauth.config.LoginLockoutProperties;
 import org.foam.springbootjwtauth.model.database.auth.RefreshToken;
 import org.foam.springbootjwtauth.model.database.auth.User;
 import org.foam.springbootjwtauth.model.request.auth.LoginRequest;
@@ -19,38 +19,52 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.util.NoSuchElementException;
+import java.time.Instant;
 
 @Service
 public class AuthService {
+
+    private static final String INVALID_REFRESH_TOKEN_MESSAGE = "Invalid refresh token";
 
     private final AuthenticationManager authenticationManager;
     private final RefreshTokenRepository refreshTokenRepository;
     private final JwtService jwtService;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final LoginLockoutProperties loginLockoutProperties;
 
     @Autowired
     public AuthService(AuthenticationManager authenticationManager,
                        JwtService jwtService,
                        RefreshTokenRepository refreshTokenRepository,
                        UserRepository userRepository,
-                       PasswordEncoder passwordEncoder) {
+                       PasswordEncoder passwordEncoder,
+                       LoginLockoutProperties loginLockoutProperties) {
         this.authenticationManager = authenticationManager;
         this.jwtService = jwtService;
         this.refreshTokenRepository = refreshTokenRepository;
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.loginLockoutProperties = loginLockoutProperties;
     }
 
-    @Transactional
+    @Transactional(noRollbackFor = AuthenticationException.class)
     public LoginResponse login(LoginRequest loginRequest) throws AuthenticationException {
         // Attempt to authenticate
         Authentication authenticationRequest = new UsernamePasswordAuthenticationToken(loginRequest.username(), loginRequest.password());
-        Authentication authenticationResponse = this.authenticationManager.authenticate(authenticationRequest);
+        Authentication authenticationResponse;
+        try {
+            authenticationResponse = this.authenticationManager.authenticate(authenticationRequest);
+        } catch (AuthenticationException e) {
+            recordFailedLoginAttempt(loginRequest.username());
+            throw e;
+        }
+
         // Get the authenticated user
         User user = (User) authenticationResponse.getPrincipal();
+        resetFailedLoginAttempts(user);
 
         return createSession(user, null);
     }
@@ -58,13 +72,12 @@ public class AuthService {
     @Transactional
     public void logout(LogoutRequest logoutRequest) {
         // Get the user
-        User user = userRepository.findByUsername(logoutRequest.username())
-                .orElseThrow(() -> new NoSuchElementException("User not found"));
+        User user = getUserForRefreshSession(logoutRequest.username());
         // Check if the refresh token is valid. If not, invalidate it by deleting the Entity from db
         Claims claims;
         try {
             if (!jwtService.validateRefreshToken(logoutRequest.refreshToken(), user)) {
-                throw new IllegalArgumentException("Invalid refresh token");
+                throw invalidRefreshTokenException();
             }
             claims = jwtService.extractAllClaims(logoutRequest.refreshToken());
         } catch (ExpiredJwtException e) { // If token is expired, we still need to validate the claims and token
@@ -93,13 +106,12 @@ public class AuthService {
     @Transactional
     public RefreshResponse refresh(RefreshRequest refreshRequest) {
         // Get the user
-        User user = userRepository.findByUsername(refreshRequest.username())
-                .orElseThrow(() -> new NoSuchElementException("User not found"));
+        User user = getUserForRefreshSession(refreshRequest.username());
         // Check if the refresh token is valid
         Claims claims;
         try {
             if (!jwtService.validateRefreshToken(refreshRequest.refreshToken(), user)) {
-                throw new IllegalArgumentException("Invalid refresh token");
+                throw invalidRefreshTokenException();
             }
             claims = jwtService.extractAllClaims(refreshRequest.refreshToken());
         } catch (ExpiredJwtException e) { // If token is expired, we still need to validate the claims and token
@@ -110,7 +122,7 @@ public class AuthService {
                 jwtService.invalidateRefreshToken(refreshTokenId);
             }
 
-            throw new IllegalArgumentException("Invalid refresh token");
+            throw invalidRefreshTokenException();
         }
 
         validateDeviceId(refreshRequest.deviceId(), claims);
@@ -142,7 +154,57 @@ public class AuthService {
 
     private void validateDeviceId(String requestDeviceId, Claims claims) {
         if (!requestDeviceId.equals(claims.get("deviceId", String.class))) {
-            throw new IllegalArgumentException("Invalid refresh token");
+            throw invalidRefreshTokenException();
         }
+    }
+
+    private void recordFailedLoginAttempt(String username) {
+        userRepository.findByUsername(username).ifPresent(user -> {
+            Instant now = Instant.now();
+
+            if (!user.isAccountNonLocked()) {
+                return;
+            }
+
+            clearExpiredTemporaryLock(user, now);
+            user.setFailedLoginAttempts(user.getFailedLoginAttempts() + 1);
+
+            if (shouldTemporarilyLock(user)) {
+                user.setLockedUntil(now.plus(loginLockoutProperties.getLockDuration()));
+            }
+
+            userRepository.save(user);
+        });
+    }
+
+    private void resetFailedLoginAttempts(User user) {
+        if (user.getFailedLoginAttempts() == 0 && user.getLockedUntil() == null) {
+            return;
+        }
+
+        user.setFailedLoginAttempts(0);
+        user.setLockedUntil(null);
+        userRepository.save(user);
+    }
+
+    private void clearExpiredTemporaryLock(User user, Instant now) {
+        if (user.getLockedUntil() != null && !user.getLockedUntil().isAfter(now)) {
+            user.setFailedLoginAttempts(0);
+            user.setLockedUntil(null);
+        }
+    }
+
+    private boolean shouldTemporarilyLock(User user) {
+        return loginLockoutProperties.getMaxFailedAttempts() > 0
+                && user.getFailedLoginAttempts() >= loginLockoutProperties.getMaxFailedAttempts();
+    }
+
+    private User getUserForRefreshSession(String username) {
+        return userRepository.findByUsername(username)
+                .orElseThrow(this::invalidRefreshTokenException);
+    }
+
+    private IllegalArgumentException invalidRefreshTokenException() {
+        return new IllegalArgumentException(INVALID_REFRESH_TOKEN_MESSAGE);
     }
 }

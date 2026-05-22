@@ -63,6 +63,7 @@ public class UserService implements UserDetailsService {
         newUser.setAccountNonLocked(true);
         newUser.setCredentialsNonExpired(true);
         newUser.setEnabled(true);
+        newUser.setFailedLoginAttempts(0);
 
         // create the authority and authorities list
         Authority authority = new Authority();

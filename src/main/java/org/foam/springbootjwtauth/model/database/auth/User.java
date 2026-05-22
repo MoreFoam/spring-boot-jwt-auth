@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 
@@ -48,6 +49,12 @@ public class User implements UserDetails {
     @Column(nullable = false)
     private boolean credentialsNonExpired;
 
+    @Column(nullable = false)
+    private int failedLoginAttempts;
+
+    @Column
+    private Instant lockedUntil;
+
     @Override
     public Collection<Authority> getAuthorities() {
         return authorities;
@@ -66,7 +73,8 @@ public class User implements UserDetails {
 
     @Override
     public boolean isAccountNonLocked() {
-        return this.accountNonLocked;
+        return this.accountNonLocked
+                && (this.lockedUntil == null || !this.lockedUntil.isAfter(Instant.now()));
     }
 
     @Override

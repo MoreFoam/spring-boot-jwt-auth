@@ -5,6 +5,7 @@ import org.foam.springbootjwtauth.TestcontainersConfiguration;
 import org.foam.springbootjwtauth.model.request.auth.RegisterUserRequest;
 import org.foam.springbootjwtauth.model.response.auth.LoginResponse;
 import org.foam.springbootjwtauth.repository.auth.RefreshTokenRepository;
+import org.foam.springbootjwtauth.repository.auth.UserRepository;
 import org.foam.springbootjwtauth.service.auth.JwtService;
 import org.foam.springbootjwtauth.service.auth.UserService;
 import org.junit.jupiter.api.AfterEach;
@@ -21,6 +22,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
+
+import java.time.Instant;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -47,6 +50,9 @@ public class AuthControllerIntegrationTests {
 
     @Autowired
     private RefreshTokenRepository refreshTokenRepository;
+
+    @Autowired
+    private UserRepository userRepository;
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -118,6 +124,58 @@ public class AuthControllerIntegrationTests {
     }
 
     @Test
+    public void failedLoginsTemporarilyLockUser() throws Exception {
+        String badLoginRequestJson = """
+                    {
+                        "username": "user",
+                        "password": "bad-password"
+                    }
+                """;
+
+        for (int attempt = 0; attempt < 5; attempt++) {
+            mockMvc.perform(post("/auth/login")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(badLoginRequestJson))
+                    .andExpect(status().isUnauthorized());
+        }
+
+        var lockedUser = userRepository.getUserByUsername("user");
+        assertFalse(lockedUser.isAccountNonLocked());
+        assertNotNull(lockedUser.getLockedUntil());
+
+        String validLoginRequestJson = """
+                    {
+                        "username": "user",
+                        "password": "password"
+                    }
+                """;
+
+        mockMvc.perform(post("/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(validLoginRequestJson))
+                .andExpect(status().isUnauthorized());
+
+        lockedUser.setLockedUntil(Instant.now().minusSeconds(1));
+        userRepository.save(lockedUser);
+
+        MvcResult loginResult = mockMvc.perform(post("/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(validLoginRequestJson))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        LoginResponse loginResponse = objectMapper.readValue(
+                loginResult.getResponse().getContentAsString(),
+                LoginResponse.class);
+        deleteRefreshToken(loginResponse.getRefreshToken());
+
+        var unlockedUser = userRepository.getUserByUsername("user");
+        assertTrue(unlockedUser.isAccountNonLocked());
+        assertNull(unlockedUser.getLockedUntil());
+        assertEquals(0, unlockedUser.getFailedLoginAttempts());
+    }
+
+    @Test
     public void canLogout() throws Exception {
         // log in
         String loginRequestJson = """
@@ -180,6 +238,23 @@ public class AuthControllerIntegrationTests {
     }
 
     @Test
+    public void cannotRefreshUnknownUserWithGenericError() throws Exception {
+        String refreshRequestJson = """
+                    {
+                        "refreshToken": "invalid-refresh-token",
+                        "username": "unknown-user",
+                        "deviceId":"device-id"
+                    }
+                """;
+
+        mockMvc.perform(post("/auth/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(refreshRequestJson))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string("Invalid refresh token"));
+    }
+
+    @Test
     public void cannotLogoutWithInvalidRefreshToken() throws Exception {
         String logoutRequestJson = """
                     {
@@ -193,6 +268,23 @@ public class AuthControllerIntegrationTests {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(logoutRequestJson))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    public void cannotLogoutUnknownUserWithGenericError() throws Exception {
+        String logoutRequestJson = """
+                    {
+                        "refreshToken": "invalid-refresh-token",
+                        "username": "unknown-user",
+                        "deviceId":"device-id"
+                    }
+                """;
+
+        mockMvc.perform(post("/auth/logout")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(logoutRequestJson))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string("Invalid refresh token"));
     }
 
     @Test

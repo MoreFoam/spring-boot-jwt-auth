@@ -168,6 +168,13 @@ Runtime configuration is read from environment variables. Use `.env.example` as 
   - Local fallback values point at `jdbc:postgresql://localhost:5432/spring_boot_jwt_auth` with `postgres` credentials.
   - Ensure the Compose Postgres service is running and credentials match, or update these values.
 
+- Login lockout
+  - Environment variables:
+    - `LOGIN_MAX_FAILED_ATTEMPTS`
+    - `LOGIN_LOCK_DURATION`
+  - Defaults: 5 failed attempts and a 15-minute temporary lockout.
+  - The public login response remains generic to avoid revealing whether an account exists or is temporarily locked.
+
 - Browser refresh cookie
   - Environment variables:
     - `REFRESH_COOKIE_NAME`
